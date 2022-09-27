@@ -1,5 +1,6 @@
 ; Main.s
-; Entry point for program
+; Entry point for Casio_PICRAM
+; Emulates a Casio 4-bit RAM chip used in 1980s pocket computers
     
 PROCESSOR 16F18446
     
