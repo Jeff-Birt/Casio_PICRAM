@@ -1,0 +1,109 @@
+Can be ~4.25ms between /CE1 leading up to idle
+
+/OP without /CE1 happens before possible idle, data is E. Next /OP with /CE1 data 0
+
+/OP without /CE1 with data 0 may indicate two more pings before idle
+No /CLK1 transition in >5us, ~40 instuction cycles, means idle? 
+
+There is ~5ms between packets we are in idle state.
+At 19,200 baud a byte takes ~521us. May be able to send 8 bytes in during idle break.
+
+Main loop modes:
+	Init, Run, Idle, Power_Off
+
+
+ToDo:
+Need to implement a proper idle state handler.
+	Single key command, i.e. 
+	(S)tatus, (U)pload [to PB-100 via UART], (D)ownload [from PB-100 via UART]
+	(X) Dump DEV0 (PB-100) w/header, (Y) Dump DEV1 (PIC) w/header, (Z)ero DEV0
+
+
+Need to be able to download from all DEV# on PB-100 as well as PICRAM.
+Need to be able to upload to sll DEV# on PB-100 and PICRAM
+
+How to tell if DEV# is in PB-100 or in PICRAM? 
+A table in EEPROM of DEV#s that PIC emulates? 
+Do we need a way to manually set it? A serial command?
+
+Check for single character serial command during idle periods. 
+Commands that require extensive serial input use a separate input function. This function times out. If TEMP > 0 less than 16 bytes received. 16 - TEMP = num bytes received
+
+After 16 characters then what? After first 16 byte header we need to figure out which Device on the PB-100 or PIC this file is for. 
+
+
+Header format is "PICRAM 1.0 mn***"
+Bytes	  Description
+0-5 	  Name
+6	  Space
+7-9	  Version# Major.Minor
+10	  Space
+11-12   mn high/low nibble of device mask/count (ASCII)
+13-15	  Free
+
+m = High Nibble = Device type mask 0=CRAM, 1=PRAM
+n =  Low Nibble = #Devices 1-4
+ASCII $30-$3F = cahracters 0123456789:;<=>? = values 0-F
+mn=22, 0010 0010, #DEV=2, DEV0=CRAM, DEV1=PRAM
+mn=53, 0110 0010, #DEV=3, DEV0=CRAM, DEV1=PRAM, DEV2=PRAM
+
+
+Rest of file is raw binary dump of that device's RAM
+
+PIC_RAM Casio_RAM
+PRAM	CRAM
+
+COUNTL	; Number of nibbles/bytes in command/data
+COUNTH	; HB for 16bit counting
+
+Used by - 
+Casio_Coms: InitCBUF, WaitForCE1, RxCmd_Slave, RxData_Slave, TxData_Slave, RxData_Master, TxCmd_Master, TxData_Master, DownloadHandler, UploadHandler, StatusHandler, XHandler, DumpCRAM, DumpPRAM, Upload_CRAM
+
+Casio_Com_Macros: SetCBufPointer_L, TxBuffer 
+
+UART_Com: RxBuffer 
+
+
+
+NIBADD	; N2,N1 for up/download, 16byte chunks N0==0 
+Used by - 
+Casio_Coms: UploadHandler, ZHandler, Upload_CRAM, TxBuffer, 
+
+
+DEVICE	; Current RAM device being accessed
+
+
+
+CMODE	; Function State flags
+Used by - 
+Casio_Coms: InitCBUF, WaitForCE1, 
+
+UART_Coms: RxBuffer
+ 
+
+
+TEMP	; Function temp variable
+Used by -
+Casio_Coms: InitCBUF, RxCmd_Slave, RxData_Slave, TxData_Slave, RxData_Master, TxData_Master, UploadHandler, Upload_PRAM
+
+UART_Coms: RxBuffer
+
+
+
+TEMP1	; Function temp variable
+Used by - 
+Casio_Coms: UploadHandler, XHandler, ZHandler, DumpCRAM, DumpPRAM 
+
+
+TEMP2	; Function temp variable
+Used by -
+Casio_Coms: DumpCRAM
+
+
+
+
+
+
+
+
+
