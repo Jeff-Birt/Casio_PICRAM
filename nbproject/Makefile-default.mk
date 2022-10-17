@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=Helper_Functions.s ConfigClkPmd.s ConfigCWG1.s ConfigPins.s ConfigPWM6.s ConfigTMR2.s Main.s PinTwiddling.s Casio_Com.s ConfigIOC.s ConfigUART.s Casio_Com_Macros.s Helper_Macros.s UART_Com.s
+SOURCEFILES_QUOTED_IF_SPACED=Helper_Functions.s ConfigClkPmd.s ConfigCWG1.s ConfigPins.s ConfigPWM6.s ConfigTMR2.s Main.s PinTwiddling.s ConfigIOC.s ConfigUART.s Casio_Com_Macros.s Helper_Macros.s UART_Com.s Casio_Com.s
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/Helper_Functions.o ${OBJECTDIR}/ConfigClkPmd.o ${OBJECTDIR}/ConfigCWG1.o ${OBJECTDIR}/ConfigPins.o ${OBJECTDIR}/ConfigPWM6.o ${OBJECTDIR}/ConfigTMR2.o ${OBJECTDIR}/Main.o ${OBJECTDIR}/PinTwiddling.o ${OBJECTDIR}/Casio_Com.o ${OBJECTDIR}/ConfigIOC.o ${OBJECTDIR}/ConfigUART.o ${OBJECTDIR}/Casio_Com_Macros.o ${OBJECTDIR}/Helper_Macros.o ${OBJECTDIR}/UART_Com.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/Helper_Functions.o.d ${OBJECTDIR}/ConfigClkPmd.o.d ${OBJECTDIR}/ConfigCWG1.o.d ${OBJECTDIR}/ConfigPins.o.d ${OBJECTDIR}/ConfigPWM6.o.d ${OBJECTDIR}/ConfigTMR2.o.d ${OBJECTDIR}/Main.o.d ${OBJECTDIR}/PinTwiddling.o.d ${OBJECTDIR}/Casio_Com.o.d ${OBJECTDIR}/ConfigIOC.o.d ${OBJECTDIR}/ConfigUART.o.d ${OBJECTDIR}/Casio_Com_Macros.o.d ${OBJECTDIR}/Helper_Macros.o.d ${OBJECTDIR}/UART_Com.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/Helper_Functions.o ${OBJECTDIR}/ConfigClkPmd.o ${OBJECTDIR}/ConfigCWG1.o ${OBJECTDIR}/ConfigPins.o ${OBJECTDIR}/ConfigPWM6.o ${OBJECTDIR}/ConfigTMR2.o ${OBJECTDIR}/Main.o ${OBJECTDIR}/PinTwiddling.o ${OBJECTDIR}/ConfigIOC.o ${OBJECTDIR}/ConfigUART.o ${OBJECTDIR}/Casio_Com_Macros.o ${OBJECTDIR}/Helper_Macros.o ${OBJECTDIR}/UART_Com.o ${OBJECTDIR}/Casio_Com.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/Helper_Functions.o.d ${OBJECTDIR}/ConfigClkPmd.o.d ${OBJECTDIR}/ConfigCWG1.o.d ${OBJECTDIR}/ConfigPins.o.d ${OBJECTDIR}/ConfigPWM6.o.d ${OBJECTDIR}/ConfigTMR2.o.d ${OBJECTDIR}/Main.o.d ${OBJECTDIR}/PinTwiddling.o.d ${OBJECTDIR}/ConfigIOC.o.d ${OBJECTDIR}/ConfigUART.o.d ${OBJECTDIR}/Casio_Com_Macros.o.d ${OBJECTDIR}/Helper_Macros.o.d ${OBJECTDIR}/UART_Com.o.d ${OBJECTDIR}/Casio_Com.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/Helper_Functions.o ${OBJECTDIR}/ConfigClkPmd.o ${OBJECTDIR}/ConfigCWG1.o ${OBJECTDIR}/ConfigPins.o ${OBJECTDIR}/ConfigPWM6.o ${OBJECTDIR}/ConfigTMR2.o ${OBJECTDIR}/Main.o ${OBJECTDIR}/PinTwiddling.o ${OBJECTDIR}/Casio_Com.o ${OBJECTDIR}/ConfigIOC.o ${OBJECTDIR}/ConfigUART.o ${OBJECTDIR}/Casio_Com_Macros.o ${OBJECTDIR}/Helper_Macros.o ${OBJECTDIR}/UART_Com.o
+OBJECTFILES=${OBJECTDIR}/Helper_Functions.o ${OBJECTDIR}/ConfigClkPmd.o ${OBJECTDIR}/ConfigCWG1.o ${OBJECTDIR}/ConfigPins.o ${OBJECTDIR}/ConfigPWM6.o ${OBJECTDIR}/ConfigTMR2.o ${OBJECTDIR}/Main.o ${OBJECTDIR}/PinTwiddling.o ${OBJECTDIR}/ConfigIOC.o ${OBJECTDIR}/ConfigUART.o ${OBJECTDIR}/Casio_Com_Macros.o ${OBJECTDIR}/Helper_Macros.o ${OBJECTDIR}/UART_Com.o ${OBJECTDIR}/Casio_Com.o
 
 # Source Files
-SOURCEFILES=Helper_Functions.s ConfigClkPmd.s ConfigCWG1.s ConfigPins.s ConfigPWM6.s ConfigTMR2.s Main.s PinTwiddling.s Casio_Com.s ConfigIOC.s ConfigUART.s Casio_Com_Macros.s Helper_Macros.s UART_Com.s
+SOURCEFILES=Helper_Functions.s ConfigClkPmd.s ConfigCWG1.s ConfigPins.s ConfigPWM6.s ConfigTMR2.s Main.s PinTwiddling.s ConfigIOC.s ConfigUART.s Casio_Com_Macros.s Helper_Macros.s UART_Com.s Casio_Com.s
 
 
 
@@ -100,7 +100,7 @@ ${OBJECTDIR}/Helper_Functions.o: Helper_Functions.s  nbproject/Makefile-${CND_CO
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Helper_Functions.o \
 	Helper_Functions.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigClkPmd.o: ConfigClkPmd.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -108,7 +108,7 @@ ${OBJECTDIR}/ConfigClkPmd.o: ConfigClkPmd.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigClkPmd.o \
 	ConfigClkPmd.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigCWG1.o: ConfigCWG1.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -116,7 +116,7 @@ ${OBJECTDIR}/ConfigCWG1.o: ConfigCWG1.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigCWG1.o \
 	ConfigCWG1.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigPins.o: ConfigPins.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -124,7 +124,7 @@ ${OBJECTDIR}/ConfigPins.o: ConfigPins.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigPins.o \
 	ConfigPins.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigPWM6.o: ConfigPWM6.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -132,7 +132,7 @@ ${OBJECTDIR}/ConfigPWM6.o: ConfigPWM6.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigPWM6.o \
 	ConfigPWM6.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigTMR2.o: ConfigTMR2.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -140,7 +140,7 @@ ${OBJECTDIR}/ConfigTMR2.o: ConfigTMR2.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigTMR2.o \
 	ConfigTMR2.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/Main.o: Main.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -148,7 +148,7 @@ ${OBJECTDIR}/Main.o: Main.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Main.o \
 	Main.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/PinTwiddling.o: PinTwiddling.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -156,15 +156,7 @@ ${OBJECTDIR}/PinTwiddling.o: PinTwiddling.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/PinTwiddling.o \
 	PinTwiddling.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
-	
-${OBJECTDIR}/Casio_Com.o: Casio_Com.s  nbproject/Makefile-${CND_CONF}.mk 
-	@${MKDIR} "${OBJECTDIR}" 
-	@${RM} ${OBJECTDIR}/Casio_Com.o 
-	${MP_AS} -mcpu=PIC16F18446 -c \
-	-o ${OBJECTDIR}/Casio_Com.o \
-	Casio_Com.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigIOC.o: ConfigIOC.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -172,7 +164,7 @@ ${OBJECTDIR}/ConfigIOC.o: ConfigIOC.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigIOC.o \
 	ConfigIOC.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigUART.o: ConfigUART.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -180,7 +172,7 @@ ${OBJECTDIR}/ConfigUART.o: ConfigUART.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigUART.o \
 	ConfigUART.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/Casio_Com_Macros.o: Casio_Com_Macros.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -188,7 +180,7 @@ ${OBJECTDIR}/Casio_Com_Macros.o: Casio_Com_Macros.s  nbproject/Makefile-${CND_CO
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Casio_Com_Macros.o \
 	Casio_Com_Macros.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/Helper_Macros.o: Helper_Macros.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -196,7 +188,7 @@ ${OBJECTDIR}/Helper_Macros.o: Helper_Macros.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Helper_Macros.o \
 	Helper_Macros.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/UART_Com.o: UART_Com.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -204,7 +196,15 @@ ${OBJECTDIR}/UART_Com.o: UART_Com.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/UART_Com.o \
 	UART_Com.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
+	
+${OBJECTDIR}/Casio_Com.o: Casio_Com.s  nbproject/Makefile-${CND_CONF}.mk 
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/Casio_Com.o 
+	${MP_AS} -mcpu=PIC16F18446 -c \
+	-o ${OBJECTDIR}/Casio_Com.o \
+	Casio_Com.s \
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 else
 ${OBJECTDIR}/Helper_Functions.o: Helper_Functions.s  nbproject/Makefile-${CND_CONF}.mk 
@@ -213,7 +213,7 @@ ${OBJECTDIR}/Helper_Functions.o: Helper_Functions.s  nbproject/Makefile-${CND_CO
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Helper_Functions.o \
 	Helper_Functions.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigClkPmd.o: ConfigClkPmd.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -221,7 +221,7 @@ ${OBJECTDIR}/ConfigClkPmd.o: ConfigClkPmd.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigClkPmd.o \
 	ConfigClkPmd.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigCWG1.o: ConfigCWG1.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -229,7 +229,7 @@ ${OBJECTDIR}/ConfigCWG1.o: ConfigCWG1.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigCWG1.o \
 	ConfigCWG1.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigPins.o: ConfigPins.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -237,7 +237,7 @@ ${OBJECTDIR}/ConfigPins.o: ConfigPins.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigPins.o \
 	ConfigPins.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigPWM6.o: ConfigPWM6.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -245,7 +245,7 @@ ${OBJECTDIR}/ConfigPWM6.o: ConfigPWM6.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigPWM6.o \
 	ConfigPWM6.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigTMR2.o: ConfigTMR2.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -253,7 +253,7 @@ ${OBJECTDIR}/ConfigTMR2.o: ConfigTMR2.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigTMR2.o \
 	ConfigTMR2.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/Main.o: Main.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -261,7 +261,7 @@ ${OBJECTDIR}/Main.o: Main.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Main.o \
 	Main.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/PinTwiddling.o: PinTwiddling.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -269,15 +269,7 @@ ${OBJECTDIR}/PinTwiddling.o: PinTwiddling.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/PinTwiddling.o \
 	PinTwiddling.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
-	
-${OBJECTDIR}/Casio_Com.o: Casio_Com.s  nbproject/Makefile-${CND_CONF}.mk 
-	@${MKDIR} "${OBJECTDIR}" 
-	@${RM} ${OBJECTDIR}/Casio_Com.o 
-	${MP_AS} -mcpu=PIC16F18446 -c \
-	-o ${OBJECTDIR}/Casio_Com.o \
-	Casio_Com.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigIOC.o: ConfigIOC.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -285,7 +277,7 @@ ${OBJECTDIR}/ConfigIOC.o: ConfigIOC.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigIOC.o \
 	ConfigIOC.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/ConfigUART.o: ConfigUART.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -293,7 +285,7 @@ ${OBJECTDIR}/ConfigUART.o: ConfigUART.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/ConfigUART.o \
 	ConfigUART.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/Casio_Com_Macros.o: Casio_Com_Macros.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -301,7 +293,7 @@ ${OBJECTDIR}/Casio_Com_Macros.o: Casio_Com_Macros.s  nbproject/Makefile-${CND_CO
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Casio_Com_Macros.o \
 	Casio_Com_Macros.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/Helper_Macros.o: Helper_Macros.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -309,7 +301,7 @@ ${OBJECTDIR}/Helper_Macros.o: Helper_Macros.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/Helper_Macros.o \
 	Helper_Macros.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 ${OBJECTDIR}/UART_Com.o: UART_Com.s  nbproject/Makefile-${CND_CONF}.mk 
 	@${MKDIR} "${OBJECTDIR}" 
@@ -317,7 +309,15 @@ ${OBJECTDIR}/UART_Com.o: UART_Com.s  nbproject/Makefile-${CND_CONF}.mk
 	${MP_AS} -mcpu=PIC16F18446 -c \
 	-o ${OBJECTDIR}/UART_Com.o \
 	UART_Com.s \
-	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
+	
+${OBJECTDIR}/Casio_Com.o: Casio_Com.s  nbproject/Makefile-${CND_CONF}.mk 
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/Casio_Com.o 
+	${MP_AS} -mcpu=PIC16F18446 -c \
+	-o ${OBJECTDIR}/Casio_Com.o \
+	Casio_Com.s \
+	 -msummary=+mem,-psect,-class,-hex,-file,-sha1,-sha256,-xml,-xmlfull -fmax-errors=20 -mwarn=0 -xassembler-with-cpp -Wa,-Wa,-a
 	
 endif
 

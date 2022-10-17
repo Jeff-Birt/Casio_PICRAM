@@ -6,7 +6,7 @@ PROCESSOR 16F18446
 
 ;-------------------------------------------------------------------------------
 ; Definitions declared other files
-EXTRN CBUF_START, CBUF_END				    ; From Casio_Coms.s
+EXTRN CBUF_START, CBUF_END, COUNTL			    ; From Casio_Coms.s
 EXTRN PRAM_BH, PRAM_BL, PRAM_EH, PRAM_EL		    ; From Main.s
     
 ;<editor-fold defaultstate="collapsed" desc="Delay">-----------------------  
@@ -93,26 +93,29 @@ waitBtn2:
 ; CmdBuffer  input: TYPE, DA-NAh, NAl 
 ; CmdBuffer output: TYPE, BAh, BAl, B7, DA_Temp  (B7 -> Bit7 start with Nh)
 ; CBUF_START+3 a.k.a. B7, Bit7 to indicate start w/Nh   
+; Sets FSR0 to address passed in command
 GLOBAL NAtoBA
 NAtoBA:
     BANKSEL CBUF_START		    ; (2) 
-    CLRF    CBUF_START+3	    ; (1) Clear B7 ahead of time
+    ;CLRF    CBUF_START+3	    ; (1) Clear B7 ahead of time
+    CLRF    COUNTL
     MOVLW   0xF0		    ; (1) mask to keep only DA
     ANDWF   CBUF_START+1,W	    ; (1) save DA to W
     MOVWF   CBUF_START+4	    ; (1) Save DA to temp location
     
     ; NA to DA section
     MOVLW   0x0F		    ; (1) mask to keep high nibble of NA
-    ANDWF   CBUF_START+1	    ; (1) mask off DA
+    ANDWF   CBUF_START+1	    ; (1) mask off DA (Device Address)
     BCF	    STATUS, 0		    ; (1) clear carry bit
-    RRF	    CBUF_START+1	    ; (1) MSN of NA divide by two
+    RRF	    CBUF_START+1	    ; (1) MSN of NA (Nibble Address) divide by 2
     RRF	    CBUF_START+2	    ; (1) Low nibs of NA divide by 2, carry in
     BTFSC   STATUS,0		    ; (2) Skip ahead if Carry not set
-    BSF	    CBUF_START+3,7	    ; (1) Set B7 Bit7 to indicate start w/Nh
+    ;BSF	    CBUF_START+3,7	    ; (1) Set Bit 7 of B7 to indicate start w/Nh
+    BSF	    COUNTL,7
     MOVF    CBUF_START+4,W	    ; (1) get DA saved earlier
     IORWF   CBUF_START+1	    ; (1) Put DA back where it was
     
-    ; Offset into FRRO section
+    ; Offset into FSRO section
     BCF	    STATUS,0		    ; (1) Clear carry flag
     MOVF    CBUF_START+2,W	    ; (1) Grab low byte, BAl
     ;ADDLW   PRAM_BL		    ; (1) index into PRAM LB

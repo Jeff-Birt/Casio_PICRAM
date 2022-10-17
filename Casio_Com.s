@@ -4,8 +4,8 @@
 PROCESSOR 16F18446
 #include <xc.inc>
 #include "ConfigIOC.s"
-#include "Helper_Macros.s"				; for LED
-#include "Casio_Com_macros.s"
+#include "Helper_Macros.s"
+#include "Casio_Com_Macros.s"
 #include "ConfigCWG1.s"
 #include "ConfigTMR2.s"
 
@@ -101,6 +101,8 @@ RETURN				    ; (2) [7]
     
 ;</editor-fold> ----------------------------------------------------------------  
     
+
+;<editor-fold defaultstate="collapsed" desc="Casio_Com_Functions">--------------
     
 ;<editor-fold defaultstate="collapsed" desc="WaitForCE1">-----------------------
 ; WaitForCE1 - Wait for /CE1 to fall then operate on Command or data as required
@@ -109,75 +111,115 @@ RETURN				    ; (2) [7]
 GLOBAL WaitForCE1
     
 WaitForCE1:
-    SetCBufPointer_L	CBUF_FSRxH, CBUF_FSRxL, 0x00 ; [8] Resets FSR1x to CBUF_FSRx
-    BANKSEL IOCCF		    ; (2) (0x1F55) Interrupt on Change flag register
+    SetCBufPointer_L CBUF_FSRxH, CBUF_FSRxL, 0x00 ; [8] Reset FSR1x to CBUF_FSRx, zero COUNTL
+    
+WaitForCE1_2:			    ; Entry for partial/split commands
+    BANKSEL IOCCF		    ; (2) (0x1F55) Interrupt on Change register
     CLRF    IOCCF		    ; (1) clear interrupts
-    BANKSEL PIR4		    ; (0710) Clearing IF flag.
-    BCF	    PIR4,PIR4_TMR2IF_POSN   ;
+    BANKSEL PIR4		    ; (2) (0x0710) Clearing IF flag.
+    BCF	    PIR4,PIR4_TMR2IF_POSN   ; (1) Clear TMR2 overflow register
      
 WfCE1_0:    
     BANKSEL PIR4		    ; (2) (0x0710)
     BTFSC   PIR4,1		    ; (2) (10 to check idle)
-    RETURN; GOTO    WaitForCE1
+    GOTO    WfCE1_done		    ; (2) PB-100 clock not running, so exit 
     BANKSEL IOCCF		    ; (2)  
 WfCE1_1:
     BTFSS   IOCCF,7		    ; (2) Did /CE1 go low?
-    GOTO    WfCE1_0		    ; (2) 
+    GOTO    WfCE1_0		    ; (2) Nope, try again
     BTFSC   IOCCF,4		    ; (2) Is OP low too?
-    GOTO    handleCmd		    ; (2) (9 to handle command)
-    
+    GOTO    handleCmd		    ; (2) (9 to handle command)    
  				    
 WfCE1_2:
     ; if DEV = 1 we should pay attention. if not wait till DEV = 1
-    BANKSEL CBUF_START		    ; (2) 
-    BTFSS   CMODE,0		    ; (2) Bit0 set means last CMD was for us
+    BANKSEL CBUF_START		    ; (2) Bit 0 set by command handler
+    BTFSS   CMODE,0		    ; (2) Bit 0 set means last CMD was for us
     GOTO    WaitForCE1		    ; (2) If not for us skip it
     
 WfCE1_3:    
-    ; else is RX_Data /TX_Data using current add., branch to correct handler
+    ; else is RX_Data / TX_Data using current add., branch to correct handler
     BTFSC   CBUF_START,2	    ; (2) Bit3 set is WRITE cmd
-    GOTO    writeHandler	    ; (2) was not a READ so skip to done 
+    GOTO    writeHandler	    ; (2) else is a READ  
     
 readHandler:			    ; PB-100 reading data from PIC
-    BANKSEL PORTC		    ; (2) (000E)
+    BANKSEL PORTC		    ; (2) (000E) PortC to data output
     MOVLW   0xF0		    ; (1) Bits 0-3 outputs, 4-7 inputs
-    MOVWF   TRISC		    ; (1)
-    IORWF   CBUF_START+3	    ; (1) set Bit7 of COUNT, start nibble flag
-    
+    MOVWF   TRISC		    ; (1) Config PortC here minimizes delays
     CALL    TxData_Slave	    ; (3.5us from /CE1 to here)
 
     CALL    Port_C_Input	    ; (10) PortC set to input data from PB-100
-    GOTO    WaitForCE1
+    GOTO    WaitForCE1		    ; (2) go again
     
 writeHandler:			    ; PB-100 writing data to PIC
-    IORWF   CBUF_START+3	    ; (1) set Bit7 of COUNT, start nibble flag
     CALL    RxData_Slave	    ; (#) Read nibbles into PRAM
-    GOTO    WaitForCE1
+    GOTO    WaitForCE1		    ; (2) go again
     
 handleCmd:
     CALL    RxCmd_Slave		    ; (4us) 
     MOVLW   0x05		    ; (1) did we read in 5 nibbles?
     XORWF   COUNTL,W		    ; (1) if result in W, != 0 COUNT !=5
     BTFSS   STATUS,2		    ; (1-2) 
-    GOTO    WaitForCE1		    ; (2) If not 5 nibbles not complete CMD, done
-    CALL    NAtoBA		    ; (28) combined saves 0.5us
-
-    CALL    Port_C_Write	    ; 'Prep to go into write mode if needed
-				    ; sets PORTC outputs to $FF
+    GOTO    WaitForCE1_2	    ; (2) If not 5 nibbles not complete CMD
+    
+    CALL    NAtoBA		    ; (28) Sets FSR0 to CMD address
+    CALL    Port_C_Write	    ; (#) Set write mode if needed, PortC to $FF
+    
     BANKSEL CBUF_START		    ; (2) 
     BCF	    CMODE,0		    ; (1) clear DEV1 CMD flag
-    BTFSS   CBUF_START+1,4	    ; (1) Is DA set to 1?
+    
+    MOVLW   HIGH TblDevToMask	    ; (1) Must set PLATH to high byte of table
+    MOVWF   PCLATH		    ; (1) as assembler can put it anywhere
+    SWAPF   CBUF_START+1,W	    ; (1) Get DEV address in low nibble of W
+    ANDLW   0x0F		    ; (1) Mask off the high nibble
+    CALL    TblDevToMask	    ; (#) DEV # to mask in W high nibble
+    
+    BANKSEL DEVTYPE		    ; (2) Device type cfg byte, DEV in high nib
+    ANDWF   DEVTYPE,W		    ; (1) AND mask from DEV w/DEVTYPE mask
+    ANDLW   0xF0		    ; (1) Mask off low nibble
+    BTFSS   STATUS,2		    ; (2) If W=0, this DEV is CRAM
+    BSF	    CMODE,0		    ; (1) Set DEV1 Bit0 flag, indicate PRAM
+    
     GOTO    WaitForCE1		    ; (2) wait for next /CE1
-    BSF	    CMODE,0		    ; (1) Set DEV1 CMD flag
-    GOTO    WaitForCE1
+
 WfCE1_done:
-				    ;
-RETURN    
+				    ; unified exit point
+RETURN    		
+;</editor-fold> ----------------------------------------------------------------
+	
+				    
+;<editor-fold defaultstate="collapsed" desc="TblDevToMask">---------------------
+; Convert DEV value from PB-100 command to mask, DEV and mask passed in W
+; Valid mask values: 0000, 0001, 0010, 0100. Return 0000 for invalid DEVs
+; Vlaues returned in high nibble to match with DEVTYPE
+GLOBAL TblDevToMask				    
+			
+TblDevToMask:
+    ADDWF   PCL,F		    ; (1) add offset to pc to compute goto
+
+    RETLW   0b00010000		    ; (2) DEV = 0
+    RETLW   0b00100000		    ; (2) DEV = 1
+    RETLW   0b01000000		    ; (2) DEV = 2
+    RETLW   0b10000000		    ; (2) DEV = 3
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+    RETLW   0b00000000		    ; (2) Invalid
+				    
 ;</editor-fold> ----------------------------------------------------------------
 				    
  
 ;<editor-fold defaultstate="collapsed" desc="WaitForCLK1">----------------------
 ; WaitForCLK1 - Wait for /CLK1 to go low
+; Used when waiting for an idle period to end
 GLOBAL WaitForCLK1
 				    
 WaitForCLK1:
@@ -197,11 +239,11 @@ RETURN
 GLOBAL WaitForIdle
     
 WaitForIdle:
-    BANKSEL PIR4		    ; (2) (0x0710) Periphrial Interrupt Register 4
-    BCF	    PIR4,PIR4_TMR2IF_POSN   ; (1) Clearing intruupt flag for TMR2  
+    BANKSEL PIR4		    ; (2) (0x0710) Periphrial Interrupt Register
+    BCF	    PIR4,PIR4_TMR2IF_POSN   ; (1) Clearing interupt flag for TMR2  
 WfI:    
-    BTFSS   PIR4,1		    ; (2) 
-    GOTO    WfI			    ; (2) 
+    BTFSS   PIR4,1		    ; (2) Did TMR2 overflow, yes in idle so done
+    GOTO    WfI			    ; (2) No, keep waiting
 RETURN				    ; (2) [9]
 ;</editor-fold> ---------------------------------------------------------------- 
     
@@ -215,36 +257,36 @@ WaitForPing:
     BANKSEL IOCCF		    ; (2)
     CLRF    IOCCF		    ; (1) clear interrupts
 waitFP1:
-    BTFSS   IOCCF,4		    ; (1-2) Did /OP fall?
+    BTFSS   IOCCF,4		    ; (2) Did /OP fall?
     GOTO    waitFP1		    ; (2) wait for above 
     
 waitFP2:    
-    BTFSC   IOCCF,7		    ; (1-2) Did /CE1 also fall?
+    BTFSC   IOCCF,7		    ; (2) Did /CE1 also fall?
     GOTO    WaitForPing		    ; (2) if so no a ping, try again
 
     CLRF    IOCCF		    ; (1) clear interrupts
 waitFP3:    
-    BTFSS   IOCCF,6		    ; (1-2) Wait for /CLK1 to fall 1st time
-    GOTO    waitFP3		    ; (2) wait for sbove 
+    BTFSS   IOCCF,6		    ; (2) Wait for /CLK1 to fall first time
+    GOTO    waitFP3		    ; (2) wait for above 
     
     CLRF    IOCCF		    ; (1) clear interrupts
 waitFP4:    
-    BTFSS   IOCCF,6		    ; (1-2) Wait for /CLK1 to fall 2nd time
-    GOTO    waitFP4		    ; (2) wait for sbove 
+    BTFSS   IOCCF,6		    ; (2) Wait for /CLK1 to fall 2nd time
+    GOTO    waitFP4		    ; (2) wait for above 
     
 waitFP5:
     RETURN			    ; (~30) Ping cycle complete
 ;</editor-fold> ----------------------------------------------------------------
- 
- 
 
-;<editor-fold defaultstate="collapsed" desc="RxCmd_Slave">----------------------------
+    
+
+;<editor-fold defaultstate="collapsed" desc="RxCmd_Slave">----------------------
 ; RxCmd_Slave - Read Command in Slave mode, when PB-100 in control of bus
 ; Uses FSR1 to save Command to CMDBUF, caller sets FSR1 before calling
-; Nibble RX order PB-100: CMD=Command Type, DA=Device Addr., AD=Addr. In Device
-;   CMD,DA,AD (Nibbels in LSN to MSN order)
+; Nibble RX order PB-100: CMD=Command Type, AD=Addr. In Device, DA=Device Addr., 
 ; CMDBUF -> CMD,NA (Nibble address packed into bytes in HB LB order)
 ; We count number of nibbles recvied. N<5 means a mode change w/o new address
+; COUNTL: counts #nibbles read, bit 7 indicates odd/even nibble & flush needed
 GLOBAL RxCmd_Slave
   
 RxCmd_Slave:
@@ -258,11 +300,11 @@ RxCt2:
     GOTO    RxCt2		    ; (2) wait for CLK1 to go low
 
     CALL    ReadNibble		    ; (##) Read Type nibble, 0-Read or 4-Write
-    MOVWI   FSR1++		    ; (1) Write to 1st byte of buffer
+    MOVWI   FSR1++		    ; (1) Write to first byte of buffer
     MOVLW   0x00		    ; (1) Pad buffer with zeros so we can write
     MOVWI   FSR1++		    ; (1) address nibble back in reverse, HB LB
     BANKSEL COUNTL		    ; (2) order
-    INCF    COUNTL
+    INCF    COUNTL		    ; (1) Count the nibble we just read
 
 nextNibbleRxC:			    ; Read nibbles every two CLK1 falling edges
     BANKSEL IOCCF		    ; (2) Interrupt On Change register
@@ -271,10 +313,11 @@ RxC3:
     BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
     GOTO    RxC3		    ; (2) wait for CLK1 to go low
     
-    BANKSEL PORTC		    ; (2) Check if /CE is still low
-    BTFSC   PORTC,7		    ; (1) Detects command end before 5 nibbles
+    BANKSEL PORTC		    ; (2) Detects command end before 5 nibbles
+    BTFSC   PORTC,7		    ; (1) Check if /CE is still low
     GOTO    RxC_done		    ; (2) If /CE high then exit
-    BANKSEL IOCCF		    ; (2) If so, keep going
+    
+    BANKSEL IOCCF		    ; (2) If /CE still low keep going
     CLRF    IOCCF		    ; (1) Clear flags, wait for 2nd event
 RxC4:
     BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
@@ -289,24 +332,23 @@ RxC_Odd:			    ; Write nibble to High position
     IORWF   TEMP		    ; (1) OR in H, nibble is LH order in byte
     SWAPF   TEMP,W		    ; (1) Nibbles back to HL order
     MOVWI   FSR1--		    ; (1) Write to buffer
-    BCF	    COUNTL,7		    ; (1) Clear flag to indicate using Nl next loop
-    INCF    COUNTL		    ; (1) 
+    BCF	    COUNTL,7		    ; (1) Clear flag indicate using Nl next loop
+    INCF    COUNTL		    ; (1) Count nibble we just read
     GOTO    nextNibbleRxC	    ; (2) Loop back to read remaining nibbles
     
-RxC_even:			    ; Write nibble to low position
-    MOVWF   TEMP		    ; (1) Store even/LO nibble in temp
+RxC_even:			    ; Write nibble to Low position
+    MOVWF   TEMP		    ; (1) Store even/Low nibble in temp
     SWAPF   TEMP		    ; (1) Swap nibbles to L-H order
-    INCF    COUNTL		    ; (2) Dec #Nibbles, skip if result zero 
-    BSF	    COUNTL,7		    ; (1) flag use Nh next loop, flush flag too
+    INCF    COUNTL		    ; (2) Count nibble we just read in 
+    BSF	    COUNTL,7		    ; (1) Set flag indicate Nh next loop
     GOTO    nextNibbleRxC	    ; (2) Loop back to read remaining nibbles
     
-; Done
 RxC_done:			    ; Command done. Need to check BIT7 of COUNT
     BANKSEL COUNTL		    ; (2) to see if there is a nibble left in 
     BTFSS   COUNTL,7		    ; (1) TEMP. If not RETURN.
     RETURN			    ; (2) [5]
     
-    SWAPF   TEMP,W		    ; (1) If so, Swap nibbles back to HL order
+    SWAPF   TEMP,W		    ; (1) Flush, Swap nibbles back to HL order
     MOVWI   FSR1--		    ; (1) Save last nibble to buffer 
     BCF	    COUNTL,7		    ; (1) Clear the special flag
 RETURN				    ; (2) [7]
@@ -314,61 +356,60 @@ RETURN				    ; (2) [7]
     
     
 ;<editor-fold defaultstate="collapsed" desc="RxData_Slave">---------------------   
-; RxData_Salve - Read in data nibbles in Slave mode, PB-100 in control of bus
-; Uses FSR0 to save Data to PRAM, caller sets FSR0 before calling
-; Pack nibbles in bytes in LH order, save to buffer pointed to by FSR0
-; If Bit 7 of COUNT set, we need to start with nibble Nh 
-; We enter ~1us before 1st /CE1, if it gets slower may need to GOTO RxD2
+; RxData_Slave - Read in data nibbles in Slave mode, PB-100 in control of bus
+; Caller sets FSR0 to point to PRAM buffer, Pack nibbles in bytes in LH order
+; If Bit 7 of COUNT set on entering, we need to start with nibble Nh (odd) so,
+; we need to read in whole byte into TEMP then mask of Nh
+; Skip first /CE1 check for first nibble to get timing correct.
 GLOBAL RxData_Slave
  
-RxData_Slave:			    ; Read nibbles every two /CLK1 falling edges		     
-    BANKSEL IOCCF		    ; (2) Interrupt on Change flag register
-    CLRF    IOCCF		    ; (1) clear interrupts
-RxD4:  
-    BTFSS   IOCCF,6		    ; (2) Skip if /CLK1 (Bit6) went low
-    GOTO    RxD4		    ; (2) wait for /CLK1 to go low
+RxData_Slave:			    
+    GOTO    RxD3		    ; (2) Skip first /CE1 tests for first nibble
+    
+RxD1:
     BANKSEL PORTC		    ; (2) 
     BTFSC   PORTC,7		    ; (1) Check if /CE1 is still low
     GOTO    RD_done		    ; (2) eixt if /CE1 went high
     
-    BANKSEL IOCCF		    ; (2) If /CE1 is still low keep going
-    CLRF    IOCCF		    ; (1) Clear flags, wait for 2nd event
-RxD5:
+    BANKSEL IOCCF		    ; (2) Interrupt on Change flag register
+    CLRF    IOCCF		    ; (1) clear interrupts
+RxD2:				    ;
     BTFSS   IOCCF,6		    ; (2) Skip if /CLK1 (Bit6) went low
-    GOTO    RxD5		    ; (2) wait for /CLK1 to go low
-    CALL    ReadNibble		    ; (##) returned as low nibble in W
+    GOTO    RxD2		    ; (2) /CLK1 not low so keep waiting
+
+RxD3:    
+    BANKSEL IOCCF		    ; (2) Entry point for first nibble 
+    CLRF    IOCCF		    ; (1) Clear flags, wait for 2nd event
+RxD4:
+    BTFSS   IOCCF,6		    ; (2) Skip if /CLK1 (Bit6) went low
+    GOTO    RxD4		    ; (2) /CLK1 not low so keep waiting
     
+    CALL    ReadNibble		    ; (##) returned as low nibble in W 
     BANKSEL COUNTL		    ; (2) make sure in correct bank 
-    BTFSS   COUNTL,7		    ; (1-2) if Bit 7 set, we need to Rx nibble Nh 
-    GOTO    RD_even		    ; (2) if Bit7 clear, we need to Rx nibble Nl
+    BTFSS   COUNTL,7		    ; (2) if Bit 7 set Rx nibble Nh 
+    GOTO    RD_even		    ; (2) if Bit7 clear Rx nibble Nl
     
-RD_Odd:				    ; high/Odd nibble handler
+RD_Odd:				    ; Odd/High nibble handler
     IORWF   TEMP,W		    ; (1) OR in H, nibble is LH order in byte
-    MOVWI   FSR0++		    ; (1) Write to buffer
-    
+    MOVWI   FSR0++		    ; (1) Write to buffer  
     BANKSEL COUNTL		    ; (2) make sure in correct bank 
-    BCF	    COUNTL,7		    ; (1) Clear flag to indicate using Nl next loop
-    DECFSZ  COUNTL		    ; (2) dec # bytes to send, skip if result zero  
-    GOTO    RxData_Slave   	    ; (2) Loop back to read remaining nibbles
-    GOTO    RD_done		    ; (2) Done if COUNT=0
+    BCF	    COUNTL,7		    ; (1) Clear flag indicate using Nl next loop
+    GOTO    RxD1		    ; (2) Loop back to read remaining nibbles
     
-RD_even: 
+RD_even:			    ; Even/LOw nibble handler
     MOVWF   TEMP		    ; (1) Store Even/Low nibble in temp
     SWAPF   TEMP		    ; (1) Swap nibbles to L-H order
     
-    DECF    COUNTL		    ; (2) dec # nibbles to send
-    BTFSC   STATUS,2		    ; (1-2) If COUNT not zero we have more nibbles
-    GOTO    RD_done		    ; (2)
     BSF	    COUNTL,7		    ; (1) set flag to use Nh next loop
-    GOTO    RxData_Slave	    ; (2) Loop back to read remaining nibbles
+    GOTO    RxD1		    ; (2) Loop back to read remaining nibbles
     
 RD_done:
-    BANKSEL COUNTL		    ; (2) to see if there is a nibble left in 
-    BTFSS   COUNTL,7		    ; (1) TEMP. If not RETURN.
-    RETURN			    ; (2) [5]
+    BANKSEL COUNTL		    ; (2) See if there is a nibble left in TEMP.
+    BTFSS   COUNTL,7		    ; (1) If not return.
+    RETURN			    ; (2)
     
     SWAPF   TEMP,W		    ; (1) If so, Swap nibbles back to HL order
-    MOVWI   FSR0++		    ; (1) Save last nibble to buffer 
+    MOVWI   FSR0++		    ; (1) Save last nibble to buffer
     BCF	    COUNTL,7		    ; (1) Clear the special flag
 
 RETURN   
@@ -380,59 +421,67 @@ RETURN
 ; Nibbles packed in bytes in LH order, read from buffer pointed to by FSR0
 ; Caller should set FSR0 to point to proper location before calling
 ; If Bit 7 of COUNT set, we need to start with/send nibble Nh 
+; Start first nibble after first /CE1, next nibbles every other /CE1
+; We skip both /CE1 tests for first nibble to get timing correct.
 GLOBAL TxData_Slave    
     
 TxData_Slave:  
     MOVIW   FSR0++		    ; (1) Grab first 2 nibbles from buffer
     BANKSEL TEMP		    ; (1) 
-    MOVWF   TEMP		    ; (1) in L-H order, stash in temp
-
-TxD1:
-    BANKSEL IOCCF		    ; (2) In Slave mode we need to wait until	
-    GOTO    TxD6		    ; (2)
+    MOVWF   TEMP		    ; (1) in L-H order, stash in temp	
+    GOTO    nextNibbleTxD2	    ; (2) Skip both /CE1 checks on first nibble
  
-nextNibbleTxD1:			    ; Grab next two nibbles from buffer
+nextNibbleTxD1:			    ; 
+    BANKSEL TEMP		    ; (2) 
     MOVIW   FSR0++		    ; (1) Grab 2 nibbles from buffer
     MOVWF   TEMP		    ; (1) in L-H order, stash in temp
     
-nextNibbleTxD2:			    ; Use the 2nd nibble from last buffer read
-    BANKSEL PORTC		    ; (2) 
-    BTFSC   PORTC,7		    ; (1) Check if /CE is still low
-    GOTO    TxD_done		    ; (2)
-
-    BANKSEL IOCCF		    ; (2) Need to wait for two /CLK1 
-    CLRF    IOCCF		    ; (1) falling edges before rreading data
-TxD5:  
-    BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
-    GOTO    TxD5		    ; (2) wait for CLK1 to go low
-    CLRF    IOCCF
-TxD6:     
-    BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
-    GOTO    TxD6		    ; (2) wait for CLK1 to go low
-    
-    BANKSEL TEMP		    ; (2) make sure in correct bank 
-    BTFSS   COUNTL,7		    ; (1-2) if Bit 7 set, send nibble Nh 
-    GOTO    TxD_Nl		    ; (2) if Bit7 clear, send nibble Nl
+nextNibbleTxD2:			    ; Use the 2nd nibble from last buffer read  
+    BANKSEL TEMP		    ; (2) Make sure in correct bank 
+    BTFSS   COUNTL,7		    ; (2) If Bit 7 set, send nibble Nh 
+    GOTO    TxD_Nl		    ; (2) if Bit7 clear, send nibble Nl (even)
     
 TxD_Nh:    
-    MOVF    TEMP,W		    ; (1) grab odd nibble, in L position of b
+    MOVF    TEMP,W		    ; (1) Grab odd nibble, in L position of byte
     CALL    WriteNibble		    ; (10) Tx High nibble
-
     BANKSEL TEMP		    ; (2) make sure in correct bank 
-    BCF	    COUNTL,7		    ; (1) Clear flag to indicate using Nl next loop
-    DECFSZ  COUNTL		    ; (2) dec # bytes to send, skip if result zero   
-    GOTO    nextNibbleTxD1	    ; (2) if bytes left loop back to read them
-    GOTO    TxD_done		    ; (2)
+    BCF	    COUNTL,7		    ; (1) Clear flag indicate using Nl next loop
     
-TxD_Nl: 
+    BANKSEL IOCCF		    ; (2) Need to wait for two /CLK1 
+    CLRF    IOCCF		    ; (1) falling edges before checking for
+Tx_Nh_1:			    ; /CE still being low
+    BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
+    GOTO    Tx_Nh_1		    ; (2) Wait for CLK1 to go low   
+    CLRF    IOCCF		    ; (1) falling edges before rreading data
+Tx_Nh_2:     
+    BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
+    GOTO    Tx_Nh_2		    ; (2) 
+    
+    BANKSEL PORTC		    ; (2) 
+    BTFSC   PORTC,7		    ; (1) Check if /CE is still low
+    GOTO    TxD_done		    ; (2) If not we are done
+    GOTO    nextNibbleTxD1	    ; (2) Loop back handle any remaining nibbles
+    
+TxD_Nl:				    ; Send low nibble
     SWAPF   TEMP,W		    ; (1) swap nibbles to Nh_Nl, keep in W
     CALL    WriteNibble		    ; (10) Tx Low nibble
     BANKSEL TEMP		    ; (2) make sure in correct bank 
-    DECF    COUNTL		    ; (2) dec # nibbles to send
-    BTFSC   STATUS,2		    ; (1-2) If COUNT not zero we have more nibbles
-    GOTO    TxD_done		    ; (2)
     BSF	    COUNTL,7		    ; (1) set flag to use Nh next loop
-    GOTO    nextNibbleTxD2	    ; (2) if bytes left loop back to send them
+    
+    BANKSEL IOCCF		    ; (2) Need to wait for two /CLK1 
+    CLRF    IOCCF		    ; (1) falling edges before checking for
+Tx_Nl_1:			    ; /CE still being low
+    BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
+    GOTO    Tx_Nl_1		    ; (2) Wait for CLK1 to go low   
+    CLRF    IOCCF		    ; (1) falling edges before rreading data
+Tx_Nl_2:     
+    BTFSS   IOCCF,6		    ; (2) Skip if CLK1 (Bit6) went low
+    GOTO    Tx_Nl_2		    ; (2) 
+    
+    BANKSEL PORTC		    ; (2) 
+    BTFSC   PORTC,7		    ; (1) Check if /CE is still low
+    GOTO    TxD_done		    ; (2) If not we are done
+    GOTO    nextNibbleTxD2	    ; (2) Loop back handle any remaining nibbles
 
 TxD_done:  
 
@@ -646,6 +695,7 @@ TxDM_7:
 RETURN
 ;</editor-fold> ----------------------------------------------------------------   
     
+;</editor-fold> ----------------------------------------------------------------
     
     
 ;<editor-fold defaultstate="collapsed" desc="DownloadHandler">------------------
@@ -667,17 +717,17 @@ DownloadHandler:
 
 dLoop1: 
     BANKSEL TEMP2		    ; branch to correct device type handler
-    BTFSS   TEMP2,0		    ; (1) If Bit 0 set is PRAM, 
+    BTFSS   TEMP2,0		    ; (1) If Bit 0 set it is PRAM, 
     GOTO    dLoopCRAM		    ; (2) else it is CRAM
-     
+
+; If more than 1 DEV in PRAM supported, adjust to correct location in buffer    
 dLoopPRAM:
-    ; If more than 1 DEV in PRAM supported, adjust to correct location in buffer
     MOVLW   PRAM_BL		    ; (1) Set FSR1 to point to start of PRAM
     MOVWF   FSR1L		    ; (1) Used only for PIC RAM devices
     MOVLW   PRAM_BH		    ; (1) 
     MOVWF   FSR1H		    ; (1)    
     CALL    DumpPRAM		    ; (#) Dump this PRAM
-    GOTO    dLoopTest		    ; (2) 
+    GOTO    dLoopTest		    ; (2) See if we have move DEVs to dump
     
 dLoopCRAM:
     BANKSEL NIBADD		    ; (2) Zero start nibble address for PB-100
@@ -688,7 +738,7 @@ dLoopTest:
     INCF    DEVICE		    ; (2) Inc to next device #
     MOVF    DEVICE,W		    ; (1) grab device #
     BANKSEL DEVTYPE		    ; (2) 
-    XORWF   DEVTYPE,W		    ; (1) XOR, get diff in low nibble
+    XORWF   DEVTYPE,W		    ; (1) XOR, get difference in low nibble
     ANDLW   0x0F		    ; (1) Mask off high nibble
     BTFSC   STATUS,2		    ; (2) If W!=0 keep going
     GOTO    dDone		    ; (2) Else, we are done
@@ -709,25 +759,29 @@ RETURN
 GLOBAL UploadHandler
     
 UploadHandler:
-    TurnOnLED
+    TurnOnLED   
     CALL    WaitForBtnPress	    ; Wait for button pressed  > 100ms
     CALL    WaitForBtnRelease	    ; Wait for button released > 100ms
 
 uCheckHeader:
+    ; "PICRAM 1.0 mn***" 
+    ; HB = 0b0010, 0=DEV is CRAM, 1=DEV is PRAM
+    ; LB = 2 = two devices presnet
     CALL    RxBuffer		    ; (#) This line will Rx the header
+
     ; Device type in header must match device type in DEVTYPE
     ; if not exit, if so keep going using DEVTPYE processed as above.
-    BANKSEL RXBUF_START		    ; (1) 
-    SWAPF   RXBUF_START+11	    ; (1) Get high nibble of Device type into
-    MOVLW   0xF0		    ; (1) proper position, mask off low nibble.
+    BANKSEL RXBUF_START		    ; (1) DEVTYPE in two ASCII numbers
+    SWAPF   RXBUF_START+11	    ; (1) Swap nibbles, 0x32->0x23
+    MOVLW   0xF0		    ; (1) mask off low nibble 0x20
     ANDWF   RXBUF_START+11	    ; (1) Save for now
-    MOVF    RXBUF_START+12	    ; (1) Get low nibble of Device type 
+    MOVF    RXBUF_START+12,W	    ; (1) Get low nibble of Device type
     ANDLW   0x0F		    ; (1) Mask off high nibble
-    IORWF   RXBUF_START+11	    ; (1) Now have complete Device type byte
+    IORWF   RXBUF_START+11,W	    ; (1) Now have complete Device type byte
     
     BANKSEL DEVTYPE		    ; (2) byte 11,12 are mn
     XORWF   DEVTYPE,W		    ; (1) If Device type matches DEVTYPE Z=0
-    BTFSS   STATUS,2		    ; (1) Keep procesdsing if match
+    BTFSS   STATUS,2		    ; (1) Keep processing if match
     GOTO    UploadHandlerDone	    ; (1) else stop and return
 
 uGetDevMask:        
@@ -744,6 +798,13 @@ uLoop1:
     BANKSEL NIBADD		    ; (2) Zero start nibble address for PB-100
     CLRF    NIBADD		    ; (1) For CRAM
     
+    ; *** need to calc correct PRAM starting address
+    BANKSEL PRAM_BH
+    MOVLW   PRAM_BH		    ; (1) high byte start of PRAM buffer
+    MOVWF   FSR1H		    ; (1) 
+    MOVLW   PRAM_BL		    ; (1) low byte of PRAM Buffer
+    MOVWF   FSR1L		    ; (1) [4]
+    
     BANKSEL TEMP1		    ; (2) Set up loop counter
     MOVLW   0x40		    ; (1) 0x40_loops*0x20_nib=0x400 bytes (1KB)
     MOVWF   TEMP1		    ; (1) TEMP1 is # loops counter
@@ -758,7 +819,7 @@ uLoop2:
  
 uLoopPRAM:
     ; should have 16 bytes in RXBUF here
-    CALL    DumpPRAM		    ; (#) Dump this PRAM
+    CALL    Upload_PRAM		    ; (#) Dump this PRAM
     GOTO    uLoopTest		    ; (2) ; need to loop to get all 0x40 packets
     
 uLoopCRAM:
@@ -776,12 +837,20 @@ uLoopTest:
     XORWF   DEVTYPE,W		    ; (1) XOR, get diff in low nibble
     ANDLW   0x0F		    ; (1) Mask off high nibble
     BTFSC   STATUS,2		    ; (2) If W!=0 keep going
-    GOTO    dDone		    ; (2) Else, we are done
+    GOTO    UploadHandlerDone	    ; (2) Else, we are done
 
     BANKSEL TEMP2		    ; (2) Shift Device type mask right
     RRF	    TEMP2		    ; (1) So we can test device type 
     GOTO    uLoop1		    ; (2) on next loop. Keep going.
-  
+;  
+;                    BANKSEL COUNTH
+;    CLRF    COUNTH
+;    MOVLW   0x10
+;    MOVWF   COUNTL
+;    ResetRxBufPtrFSR0		    ; (4) Resets FSR0 to beginning of RXBUF
+;    CALL    TxBuffer
+;    GOTO    UploadHandlerDone
+    
 UploadHandlerDone:
     TurnOffLED
 RETURN
@@ -789,22 +858,22 @@ RETURN
     
     
 ;<editor-fold defaultstate="collapsed" desc="StatusHandler">--------------------
-; Sets FSR1 to point to CBUF and sets length in TEMP to 5
+; Sets FSR0 to point to CBUF and sets length in TEMP to 5
 ; This is a test function
 GLOBAL StatusHandler
 
 StatusHandler:      
     BANKSEL VersionText
     MOVLW   LOW VersionText
-    MOVWF   FSR1L
+    MOVWF   FSR0L
     MOVLW   HIGH VersionText
     IORLW   0x80
-    MOVWF   FSR1H
+    MOVWF   FSR0H
     
     BANKSEL COUNTL		    ; (2) Bytes to send in COUNTH, COUNTL (HB, LB)
     MOVLW   0x00		    ; (1) 
     MOVWF   COUNTH		    ; (1) High byte
-    MOVIW   FSR1++
+    MOVIW   FSR0++
     MOVWF   COUNTL		    ; (1) Low byte
     
 RETURN
@@ -853,8 +922,8 @@ ZHandler:			    ; Fill RXBUF with zeros
     ANDWF   TEMP2		    ; (1) TEMP2 low nibble is DEV type mask
     
     MOVLW   0x10		    ; (1) Clear 16 bytes
-    MOVWF   TEMP1		    ; (1) TEMP1 used as loop counter
-    CLRW			    ; (1) Clear W register
+    MOVWF   TEMP1		    ; (1) TEMP1 used as loop counter			    
+    MOVLW   0xA5		    ; (1) Set W to fill value
 zClearLoop:   
     MOVWI   FSR0++		    ; (1) Write to RXBUF
     DECFSZ  TEMP1		    ; (2) 
@@ -875,6 +944,10 @@ zLoop1:
     MOVWF   FSR1H		    ; (1)    
 
 zLoop2:    
+;    BANKSEL RXBUF_START		    ; (2) For testing 
+;    MOVF    TEMP1,W		    ; (1) Change first byte of each line,
+;    MOVWF   RXBUF_START		    ; (1) 16 bytes/line, to loop counter
+
     BANKSEL TEMP2
     BTFSS   TEMP2,0		    ; (1) If Bit 0 set is PRAM, else is CRAM
     GOTO    zLoopCRAM		    ; (2) 
@@ -885,13 +958,12 @@ zLoopPRAM:
     
 zLoopCRAM:
     CALL    Upload_CRAM		    ; (#) Sends 16 bytes to PB-100  
-    TurnOnLED
     
 zLoopTest:
     BANKSEL TEMP1		    ; (2)
     DECFSZ  TEMP1		    ; (2) If zero we are done
     GOTO    zLoop2		    ; (2) If not keep looping
-    
+
     INCF    DEVICE		    ; (2) Inc to next device #
     MOVF    DEVICE,W		    ; (1) grab device #
     BANKSEL DEVTYPE		    ; (2) 
@@ -1003,7 +1075,7 @@ dPICLoop:			    ; Set up to read 16 bytes from PRAM
     ResetRxBufPtrFSR0		    ; (4) Resets FSR0 to beginning of RXBUF
     BANKSEL COUNTL		    ; (2)
     CLRF    COUNTH		    ; (1) Make sure HB is zero
-    MOVLW   0x10		    ; (1) 16 bytes to read
+    MOVLW   0x10		    ; (1) 16 bytes to send
     MOVWF   COUNTL		    ; (1) COUNTH,COUNTL (HB,LB) 16bit counter
 
 dPICLoop2:			    ;    
@@ -1019,7 +1091,7 @@ dPICToUART:			    ; Set up # bytes to Tx counter and call Tx
     CLRF    COUNTH		    ; (1) High byte
     MOVLW   0x10		    ; (1) Send 16 bytes
     MOVWF   COUNTL		    ; (1) Low byte
-    CALL    TxBuffer		    ; (#) Tx 16 bytes, uses FSR1
+    CALL    TxBuffer		    ; (#) Tx 16 bytes, uses FSR0
 
     BANKSEL TEMP1		    ; (2)
     DECFSZ  TEMP1		    ; (2) If zero we are done
@@ -1031,30 +1103,31 @@ RETURN
     
 ;<editor-fold defaultstate="collapsed" desc="DumpHeader">-----------------------
 ; Dump file header to UART
+; FSR1 points to text in ROM, FSR0 points to TX/RX buffer
 GLOBAL DumpHeader
 
 DumpHeader:   
     BANKSEL HeaderText		    ; (2) "PICRAM 1.0 mn***"
     MOVLW   LOW HeaderText	    ; (1) Low byte of pointer
-    MOVWF   FSR0L		    ; (1) Read in text using FSR0
+    MOVWF   FSR1L		    ; (1) Read in text using FSR1
     MOVLW   HIGH HeaderText	    ; (1) High byte of pointer
     IORLW   0x80		    ; (1) OR in Bit7 as we are readig from ROM
-    MOVWF   FSR0H		    ; (1)
+    MOVWF   FSR1H		    ; (1)
     
-    BANKSEL COUNTL		    ; (2) #Bytes in first char of HeaderText
+    BANKSEL COUNTL		    ; (2) #Bytes is in first char of HeaderText
     MOVLW   0x00		    ; (1) COUNTH, COUNTL (HB, LB)
     MOVWF   COUNTH		    ; (1) High byte
-    MOVIW   FSR0++		    ; (1) Grab #bytes in string
+    MOVIW   FSR1++		    ; (1) Grab #bytes in string
     MOVWF   COUNTL		    ; (1) Low byte
     MOVWF   TEMP1		    ; (1) Save extra copy for transfer to RAM
     
-    ResetRxBufPtrFSR1		    ; (#) Reset pointer to start of RXBUF
+    ResetRxBufPtrFSR0		    ; (#) Reset pointer to start of RXBUF
 xferLoop:
-    MOVIW   FSR0++		    ; (1) Copy HeaderText to RXBUF
-    MOVWI   FSR1++		    ; (1) to RAM pointed to by FSR1
+    MOVIW   FSR1++		    ; (1) Copy HeaderText in ROM to RXBUF
+    MOVWI   FSR0++		    ; (1) 
     DECFSZ  TEMP1		    ; (2) loop counter
     GOTO    xferLoop		    ; (2) 
-    ResetRxBufPtrFSR1		    ; (#) Reset pointer to start of RXBUF   
+    ResetRxBufPtrFSR0		    ; (#) Reset pointer to start of RXBUF   
     
     BANKSEL DEVTYPE		    ; (2) byte 11,12 are mn
     MOVF    DEVTYPE,W		    ; (1) Grab Device type config byte
@@ -1148,14 +1221,14 @@ RETURN
     
 ;<editor-fold defaultstate="collapsed" desc="Upload_PRAM">----------------------
 ; Saves 16 bytes from RXBUFF to the PRAM, 
-; FSR0 used for RXBUF, FSR1 for CMDBUF. TEMP used for loop counter
+; FSR0 used for RXBUF, FSR1 for PICRAM. TEMP used for loop counter
 ; Caller should set FRS1 to start of PRAM
 GLOBAL Upload_PRAM   
     
 Upload_PRAM:
     ResetRxBufPtrFSR0		    ; (4) Resets FSR0 to beginning of RXBUF
     BANKSEL TEMP		    ; (2)
-    MOVLW   0x10		    ; (1) 16 bytes from RXBUF
+    MOVLW   0x10		    ; (1) 0x40 lines of 16 bytes from RXBUF
     MOVWF   TEMP		    ; (1) COUNTH,COUNTL (HB,LB) 16bit counter
 
 uPICLoop: 

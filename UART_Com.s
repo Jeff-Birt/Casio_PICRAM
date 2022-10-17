@@ -115,7 +115,8 @@ RETURN
 ; Reads data from UART 16 bytes at a time, stores in RxBuffer, rerurns to caller
 ; A 10 second timeout is implemented, #bytes RxD=16-COUNTL
 ; Uses TEMP, CMODE, COUNTH, COUNTL
-GLOBAL RxBuffer 
+GLOBAL RxBuffer
+    
 RxBuffer:
     ResetRxBufPtrFSR0		    ; (4) Resets FSR0 to beginning of RXBUF
     BANKSEL TEMP		    ; (2) Used to count # bytes recieved
@@ -162,7 +163,7 @@ RETURN
     
     
 ;<editor-fold defaultstate="collapsed" desc="TxBuffer">------------------------- 
-; TxBuffer - Send to UART what is in buffer pointed to by FSR1
+; TxBuffer - Send to UART what is in buffer pointed to by FSR0
 ; CmdBuf->TEMP,TEMP+1 = number bytes to send (LB,HB)
 ; CmdBuf->TEMP+2 = 'Burst of 8' counter. Send 8 bytes each idle.
 ; TEMP,TEMP+1=#bytes to Tx (LB,HB), TEMP+2='burst of 8' counter
@@ -174,18 +175,18 @@ TxBuffer:
     CLRF    CMODE		    ; (1) Clear the burst of 8 counter byte
 TxBNext:
     BANKSEL TX1REG		    ; (1) make sure we are in UART register bank
-    MOVIW   FSR1++		    ; (1) grab next charecter from buffer
+    MOVIW   FSR0++		    ; (1) grab next charecter from buffer
     MOVWF   TX1REG		    ; (1) put the character in TXREG
     
 TxBWait:   
     BTFSS   TX1STA, TX1STA_TRMT_POSN; (2) if TRMT is empty character was sent
     GOTO    TxBWait		    ; (2) if not, check again
 
-    BANKSEL COUNTL		    ; (2) Bytes to send in TEMP+1,TEMP (HB, LB)
+    BANKSEL COUNTL		    ; (2) Bytes to send in COUNTH,COUNTL (HB, LB)
     DEC_16  COUNTL		    ; (4) 16bit DEC of count
     BTFSC   STATUS,2		    ; (2) If Z flag set we are done
     GOTO    TxB_Done		    ; (2) 
-    INCF    CMODE;		    ; (##) Inc byte used to track bursts of 8
+    INCF    CMODE		    ; (##) Inc byte used to track bursts of 8
     BTFSC   CMODE,3		    ; (2) If Bit3 set, wait for next idle period
     CALL    WaitForIdle		    ; (##) 
     GOTO    TxBuffer		    ; (2) keep dumping

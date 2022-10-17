@@ -35,4 +35,4 @@ MP_AS_DIR="C:\Program Files\Microchip\xc8\v2.40\pic-as\bin"
 MP_LD_DIR="C:\Program Files\Microchip\xc8\v2.40\pic-as\bin"
 # MP_AR_DIR is not defined
 # MP_BC_DIR is not defined
-DFP_DIR=C:/Users/birtj/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.9.163
+DFP_DIR=C:/Users/birtj/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.5.133

@@ -47,10 +47,10 @@ IsrVec:
 ;-------------------------------------------------------------------------------
 ; Reserve 1K of linear mapped RAM 0x2400-0x27FF for RAM Buffer
 ; PRAM is RAM buffer in PIC pretending to be Casio RAM chip
-DLABS 1,0x2400,0x400,PRAM
-PRAM_BH equ 0x24		    ; Beginning of 1K RAM buffer Low byte
-PRAM_BL equ 0x00		    ; Beginning of 1K RAM buffer Hi byte
-PRAM_EH equ 0x27		    ; End of 1K RAM buffer Low byte
+DLABS 1,0x2300,0x0400,PRAM
+PRAM_BH equ 0x23		    ; Beginning of 1K RAM buffer Hi byte
+PRAM_BL equ 0x00		    ; Beginning of 1K RAM buffer Low byte
+PRAM_EH equ 0x26		    ; End of 1K RAM buffer Low byte
 PRAM_EL equ 0xFF		    ; End of 1K RAM buffer Hi byte
 GLOBAL PRAM_BH, PRAM_BL, PRAM_EH, PRAM_EL   
  
@@ -86,18 +86,17 @@ main:
     ConfigUART			    ; Config UART for TX only
     CALL    Port_C_Input	    ; Default to inputs / HiZ
 
-    
 ;-------------------------------------------------------------------------------
 ; Wait for button on PORTB Pin 5 pressed/released to start, for debugging only
     TurnOffLED			    ;
     CALL    WaitForBtnPress	    ; Wait for button pressed  > 100ms
     CALL    WaitForBtnRelease	    ; Wait for button released > 100ms
 
- 
 ;-------------------------------------------------------------------------------
 ; Init PRAM and CBUF, wait for Ping before trying to talk to PB-100
     BANKSEL DEVTYPE		    ; Set Device type mask and number of devices
-    MOVLW   0x22		    ; HB = 0010, 0=DEV is CRAM, 1=DEV is PRAM
+    ;MOVLW   0x22		    ; HB = 0010, 0=DEV is CRAM, 1=DEV is PRAM
+    MOVLW   0x02
     MOVWF   DEVTYPE		    ; LB = 2 = two devices presnet
     CALL    InitCBUF		    ; [7] Initialize Command BUffer
     ConfigIOC_R			    ; [14] PortC to general bus monitoring
@@ -108,7 +107,8 @@ main:
 ; Main program loop
     SetState	ST_Run		    ; Set program state 
     
-begin:    
+begin:
+    
     CALL    WaitForCE1		    ; (#) Monitor bus, return when idle detected
     CALL    Rx_Poll		    ; Service UART coms
 

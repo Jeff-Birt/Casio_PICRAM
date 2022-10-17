@@ -16,7 +16,7 @@ ToDo:
 Need to implement a proper idle state handler.
 	Single key command, i.e. 
 	(S)tatus, (U)pload [to PB-100 via UART], (D)ownload [from PB-100 via UART]
-	(X) Dump DEV0 (PB-100) w/header, (Y) Dump DEV1 (PIC) w/header, (Z)ero DEV0
+	(X) Dump DEV0 (PB-100) w/header, (Y) Dump DEV1 (PIC) w/header, (Z)ero all RAM
 
 
 Need to be able to download from all DEV# on PB-100 as well as PICRAM.

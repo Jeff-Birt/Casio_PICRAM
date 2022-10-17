@@ -251,6 +251,8 @@ RETURN				; (2) [6]
     
 ;<editor-fold defaultstate="collapsed" desc="WriteNibble">----------------------     
 ; Write nibble to PortC, pass nibble in W as low nibble
+; PRTC is backing store for PORTC so we can keep track of its state
+; BSF, BCF Read-Modify-Write operations don't work on PORTs correctly
 GLOBAL WriteNibble
     
 WriteNibble:
