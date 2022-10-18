@@ -24,7 +24,7 @@ EXTRN PRAM_BL, PRAM_BH, DEVTYPE				; From Main.s
 ; Reserve RAM for Command Buffer use
 ; CBUF_START->CBUF_START+4=Command, CBUF_START+5->CBUF_START+11=32 Rx nibbles
 ; CMODE: Bit0=Last CMD for us
-PSECT   CmdBuf,global,class=BANK0,size=0x1D, noexec,delta=1,space=1
+PSECT   CmdBuf,global,class=BANK0,size=0x1E, noexec,delta=1,space=1
 GLOBAL  TEMP,COUNTL,COUNTH,CMODE,CBUF_START,CBUF_END,CBUF_FSRxH,CBUF_FSRxL;
 GLOBAL  RXBUF_FSRxH, RXBUF_FSRxL, DEVICE
 
@@ -36,6 +36,7 @@ GLOBAL  RXBUF_FSRxH, RXBUF_FSRxL, DEVICE
     COUNTH:	DS  0x01	; HB for 16bit counting
     NIBADD:	DS  0x01	; N2,N1 for up/download, 16byte chunks N0==0
     DEVICE:	DS  0x01	; Current RAM device being accessed
+    DEVMSK:	DS  0x01	; WOrkign register for DEV mask shift/match
     CMODE:	DS  0x01	; Function State flags
     TEMP:	DS  0x01	; Function temp variable
     TEMP1:	DS  0x01	; Function temp variable
@@ -707,17 +708,17 @@ DownloadHandler:
     CALL    DumpHeader		    ; (#) Start file with header
     
     BANKSEL DEVTYPE		    ; (2) 
-    MOVF    DEVTYPE,W		    ; (1) Grab Device type config byte
-    BANKSEL TEMP2		    ; (1) 
-    MOVWF   TEMP2		    ; (1) Stash it in TEMP2
-    SWAPF   TEMP2		    ; (1) Swap type mask to low nibble
+    SWAPF   DEVTYPE,W		    ; (1) Grab Device type config byte
+    BANKSEL DEVMSK		    ; (1) 
+    MOVWF   DEVMSK		    ; (1) Stash it in TEMP2
     MOVLW   0x0F		    ; (1) mask off high nibble
-    ANDWF   TEMP2		    ; (1) TEMP2 is now DEV type mask
+    ANDWF   DEVMSK		    ; (1) TEMP2 is now DEV type mask
     CLRF    DEVICE		    ; (1) Start with current DEV0
-
+    
 dLoop1: 
-    BANKSEL TEMP2		    ; branch to correct device type handler
-    BTFSS   TEMP2,0		    ; (1) If Bit 0 set it is PRAM, 
+    ;goto dLoopCRAM
+    BANKSEL DEVMSK		    ; branch to correct device type handler
+    BTFSS   DEVMSK,0		    ; (1) If Bit 0 set it is PRAM, 
     GOTO    dLoopCRAM		    ; (2) else it is CRAM
 
 ; If more than 1 DEV in PRAM supported, adjust to correct location in buffer    
@@ -743,8 +744,9 @@ dLoopTest:
     BTFSC   STATUS,2		    ; (2) If W!=0 keep going
     GOTO    dDone		    ; (2) Else, we are done
 
-    BANKSEL TEMP2		    ; (2) Shift Device type mask right
-    RRF	    TEMP2		    ; (1) So we can test device type 
+    BCF	    STATUS,0		    ; (1) Clear Carry Flag
+    BANKSEL DEVMSK		    ; (2) Shift Device type mask right
+    RRF	    DEVMSK		    ; (1) So we can test device type 
     GOTO    dLoop1		    ; (2) on next loop. Keep going.
     
 dDone:   

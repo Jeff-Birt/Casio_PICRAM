@@ -97,7 +97,7 @@ main:
     BANKSEL DEVTYPE		    ; Set Device type mask and number of devices
     ;MOVLW   0x22		    ; HB = 0010, 0=DEV is CRAM, 1=DEV is PRAM
     MOVLW   0x02
-    MOVWF   DEVTYPE		    ; LB = 2 = two devices presnet
+    MOVWF   DEVTYPE		    ; LB = 2 = two devices present
     CALL    InitCBUF		    ; [7] Initialize Command BUffer
     ConfigIOC_R			    ; [14] PortC to general bus monitoring
     CALL    WaitForPing		    ; (##) Wait for 'ping' before bus monitoring
