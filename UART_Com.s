@@ -8,8 +8,8 @@ PROCESSOR 16F18446
   
 EXTRN DownloadHandler, UploadHandler, StatusHandler	; From Casio_Com.s
 EXTRN XHandler,YHandler, ZHandler			; From Casio_Com.s
-EXTRN WaitForIdle,COUNTL,COUNTH,TEMP,CMODE		; From Casio_Com.s
-EXTRN RXBUF_FSRxH, RXBUF_FSRxL,CBUF_START,CBUF_END
+EXTRN WaitForIdle,COUNTL,COUNTH,TEMP,TEMP3,TEMP4,CMODE	; From Casio_Com.s
+EXTRN RXBUF_FSRxH, RXBUF_FSRxL,CBUF_START,CBUF_END	; From Casio_Com.s
 EXTRN Delay,LOOPS,LOOPL					; From Helper_Functions.s
     
 ;-------------------------------------------------------------------------------   
@@ -57,11 +57,21 @@ Is_U:				    ; U = Upload PC->PB-100
     CALL    UploadHandler	    ;
     GOTO    RxPoll_Done		    ; 
     
-Is_D:				    ; D = Download PB-100 -> PC
+Is_D:				    ; D = Download PB-100 -> PC, ASCII Dump
     MOVF    MTEMP,W		    ;
     SUBLW   0x44		    ; If W = 'D' then
     BTFSS   STATUS, 2		    ; Z flag will be set
+    GOTO    Is_R		    ;
+    MOVLW   0x02		    ; Set to ASCII output mode
+    CALL    DownloadHandler	    ;
+    GOTO    RxPoll_Done		    ;
+    
+Is_R:				    ; R = Download PB-100 -> PC, RAW Dump
+    MOVF    MTEMP,W		    ;
+    SUBLW   0x52		    ; If W = 'D' then
+    BTFSS   STATUS, 2		    ; Z flag will be set
     GOTO    Is_S		    ;
+    MOVLW   0x00		    ; Set to RAW output mode
     CALL    DownloadHandler	    ;
     GOTO    RxPoll_Done		    ;
     
@@ -113,27 +123,30 @@ RETURN
     
 ;<editor-fold defaultstate="collapsed" desc="RxBuffer">-------------------------
 ; Reads data from UART 16 bytes at a time, stores in RxBuffer, rerurns to caller
-; A 10 second timeout is implemented, #bytes RxD=16-COUNTL
-; Uses TEMP, CMODE, COUNTH, COUNTL
+; A 10 second timeout is implemented except for EOL character
+; Uses TEMP, TEMP3, CMODE, COUNTH, COUNTL
+; *** Should move Rx byte and timeout into a seperate function and call 
+; *** from all three locations. Caller would need to look at 3rd count byte
+; *** to know if timeout occured
 GLOBAL RxBuffer
     
 RxBuffer:
     ResetRxBufPtrFSR0		    ; (4) Resets FSR0 to beginning of RXBUF
     BANKSEL TEMP		    ; (2) Used to count # bytes recieved
-    MOVLW   0x10		    ; (#) read in 16 bytes at a time
-    MOVWF   TEMP		    ; (#) 
-    MOVLW   0x40		    ; (1) Using CMODE as a third digit for 
-    MOVWF   CMODE		    ; (1) timeout counter.
+    MOVLW   0x10		    ; (#) read in 16 (or 32) bytes at a time
+    MOVWF   TEMP		    ; (#) ASCII mode 32 bytes -> 32 nibbles
+    MOVLW   0x40		    ; (1) Using TYEMP3 as a third digit for 
+    MOVWF   TEMP3		    ; (1) timeout counter.
     
 RxWait1:
     BANKSEL COUNTH		    ; (2) Used along with Delay to add a timeout
     CLRF    COUNTH		    ; (1) Delay is 25us, COUNTH makes 256 loop
-    CLRF    COUNTL
+    CLRF    COUNTL		    ; (1) Zero timeout counter
     
 RxWait2:	
     BANKSEL COUNTH		    ; (2) @19200 a byte takes ~500us
-    DEC_16  COUNTL		    ; (#)
-    BTFSC   STATUS,2		    ; (2) 
+    DEC_16  COUNTL		    ; (#) DEC timeout counter. If not zero check
+    BTFSC   STATUS,2		    ; (2) for Rx, if zero DEC 3rd counter byte
     GOTO    RxBufDec3		    ; (2) DECs the 3rd digit and loops back
 
 RxWait3:
@@ -141,21 +154,61 @@ RxWait3:
     BTFSS   PIR3,5		    ; (1) If PIR3 Bit5 set, a byte is in Rx reg
     GOTO    RxWait2		    ; (2) if not, keep trying
     
+RxMode:
+    BANKSEL CMODE		    ; (2) 
+    BTFSC   CMODE,1		    ; (2) 0 = RAW mode, 1 = ASCII mode
+    GOTO    RxMode_ASCII	    ; (2) 
+
+RxMode_Raw:
     BANKSEL RC1REG		    ; (2)
     MOVF    RC1REG,W		    ; (1) Grab byte from Rx buffer
     MOVWI   FSR0++		    ; (1) Write to buffer, inc pointer
+    GOTO    RxLoop		    ; (1)
+
+RxMode_ASCII:
+    BANKSEL RC1REG		    ; (2)
+    MOVF    RC1REG,W		    ; (1) Grab byte from Rx buffer  
+    BANKSEL TEMP4		    ; (2) 
+    MOVWF   TEMP4		    ; (1) Save W to temp
+    SWAPF   TEMP4		    ; (1) Swap nibbles
+    MOVLW   0xF0		    ; (1) Mask off low nibble
+    ANDWF   TEMP4		    ; (1) 
     
+RxWait4:
+    BANKSEL PIR3		    ; (2) Check to see we have byte incoming
+    BTFSS   PIR3,5		    ; (1) If PIR3 Bit5 set, a byte is in Rx reg
+    GOTO    RxWait4		    ; (2) if not, keep trying
+    
+    BANKSEL RC1REG		    ; (2)
+    MOVF    RC1REG,W		    ; (1) Grab byte from Rx buffer    
+    ANDLW   0x0F		    ; (1) Mask off high byte
+    BANKSEL TEMP4		    ; (2) 
+    IORWF   TEMP4,W		    ; (1) OR two nibbles into Packed byte in W
+    MOVWI   FSR0++		    ; (1) Put packed byte in buffer
+    
+RxLoop:   
     BANKSEL TEMP		    ; (2) 
-    DECFSZ  TEMP		    ; (2) 
-    GOTO    RxWait1		    ; (2)
-    GOTO    RxBufferDone	    ; (2) 
+    DECFSZ  TEMP		    ; (2) DEC the Rx byte counter
+    GOTO    RxWait1		    ; (2) If > 0 loop back
+    GOTO    RxBufferDone	    ; (2) If = 0 we are done
     
-RxBufDec3:			    ; If COUNTL > 0 we did not read in 16 bytes
-    BANKSEL CMODE
-    DECFSZ  CMODE
-    GOTO    RxWait1
+RxBufDec3:			    
+    BANKSEL TEMP3		    ; (2) Three lines tacked in to add a 3rd
+    DECFSZ  TEMP3		    ; (2) timeout counter byte, if timeout end
+    GOTO    RxWait1		    ; (2) else keep trying
        
 RxBufferDone:    
+    BANKSEL CMODE		    ; (2) Unified exit
+    BTFSS   CMODE,1		    ; (2) If ASCII mode read in EOL
+    RETURN			    ; (2) In RAW mode so done, RETURN
+
+RxWait5:
+    BANKSEL PIR3		    ; (2) There is no timeout for the EOL byte
+    BTFSS   PIR3,5		    ; (1) A rather bad way to do things.
+    GOTO    RxWait5		    ; (2) 
+    
+    BANKSEL RC1REG		    ; (2) Grab '0A' from Rx buffer
+    MOVF    RC1REG,W		    ; (1) could return W=1 if error?
     
 RETURN 
     
@@ -164,34 +217,78 @@ RETURN
     
 ;<editor-fold defaultstate="collapsed" desc="TxBuffer">------------------------- 
 ; TxBuffer - Send to UART what is in buffer pointed to by FSR0
-; CmdBuf->TEMP,TEMP+1 = number bytes to send (LB,HB)
-; CmdBuf->TEMP+2 = 'Burst of 8' counter. Send 8 bytes each idle.
-; TEMP,TEMP+1=#bytes to Tx (LB,HB), TEMP+2='burst of 8' counter
-; Uses CMODE, COUNTL, FSR1
+; COUNTH, COUNTL = number of bytes to send
+; CMODE,0 = raw output, CMODE,1 = ASCII output
+; Uses CMODE, COUNTL, COUNTH, FSR0
 GLOBAL TxBuffer
  
 TxBuffer:
     BANKSEL COUNTL		    ; (2) 
-    CLRF    CMODE		    ; (1) Clear the burst of 8 counter byte
+    ;CLRF    CMODE		    ; (1) Clear the burst of 8 counter byte
 TxBNext:
-    BANKSEL TX1REG		    ; (1) make sure we are in UART register bank
+    ;BANKSEL TX1REG		    ; (1) make sure we are in UART register bank
     MOVIW   FSR0++		    ; (1) grab next charecter from buffer
-    MOVWF   TX1REG		    ; (1) put the character in TXREG
+    ;MOVWF   TX1REG		    ; (1) put the character in TXREG
     
+TxBMode:
+    BANKSEL CMODE
+    BTFSC   CMODE,1		    ; If in ASCII mode 
+    GOTO    TxBMode_ASCII	    ;
+    
+TxBMode_Raw:   
+    BANKSEL TX1REG
+    MOVWF   TX1REG		    ; (1) put the character in TXREG  
 TxBWait:   
     BTFSS   TX1STA, TX1STA_TRMT_POSN; (2) if TRMT is empty character was sent
     GOTO    TxBWait		    ; (2) if not, check again
+    GOTO    TxBLoop
 
+TxBMode_ASCII:    
+    BANKSEL TEMP3
+    MOVWF   TEMP3
+    SWAPF   TEMP3,W
+    ANDLW   0x0F
+    IORLW   0x30
+    BANKSEL TX1REG
+    MOVWF   TX1REG		    ; (1) put the character in TXREG 
+TxBWait_Nl:   
+    BTFSS   TX1STA, TX1STA_TRMT_POSN; (2) if TRMT is empty character was sent
+    GOTO    TxBWait_Nl		    ; (2) if not, check again
+    
+    BANKSEL TEMP3
+    MOVF    TEMP3,W
+    ANDLW   0x0F
+    IORLW   0x30
+    BANKSEL TX1REG
+    MOVWF   TX1REG		    ; (1) put the character in TXREG 
+TxBWait_Nh:   
+    BTFSS   TX1STA, TX1STA_TRMT_POSN; (2) if TRMT is empty character was sent
+    GOTO    TxBWait_Nh		    ; (2) if not, check again
+
+TxBLoop:
     BANKSEL COUNTL		    ; (2) Bytes to send in COUNTH,COUNTL (HB, LB)
     DEC_16  COUNTL		    ; (4) 16bit DEC of count
     BTFSC   STATUS,2		    ; (2) If Z flag set we are done
-    GOTO    TxB_Done		    ; (2) 
-    INCF    CMODE		    ; (##) Inc byte used to track bursts of 8
-    BTFSC   CMODE,3		    ; (2) If Bit3 set, wait for next idle period
-    CALL    WaitForIdle		    ; (##) 
+    ;GOTO    TxB_Done		    ; (2)
+    GOTO    TxB_EOL		    ; (2)
+    ;INCF    CMODE		    ; (##) Inc byte used to track bursts of 8
+    ;BTFSC   CMODE,3		    ; (2) If Bit3 set, wait for next idle period
+    ;CALL    WaitForIdle		    ; (##) 
     GOTO    TxBuffer		    ; (2) keep dumping
     
-TxB_Done: 
+TxB_EOL: 
+    BANKSEL CMODE		    ; If in ASCII mode, CMODE,1=1 
+    BTFSS   CMODE,1		    ; we want to send EOL character '0A'
+    GOTO    TxB_Done		    ;
+    
+    MOVLW   0x0A		    ; EOL character
+    BANKSEL TX1REG
+    MOVWF   TX1REG		    ; (1) put the character in TXREG 
+TxBWait_EOL:   
+    BTFSS   TX1STA, TX1STA_TRMT_POSN; (2) if TRMT is empty character was sent
+    GOTO    TxBWait_EOL		    ; (2) if not, check again
+    
+TxB_Done:
     
 RETURN
 ;</editor-fold> ----------------------------------------------------------------

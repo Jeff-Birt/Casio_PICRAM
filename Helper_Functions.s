@@ -92,7 +92,7 @@ waitBtn2:
 ; NAtoBA - Convert nibble address to byte address
 ; CmdBuffer  input: TYPE, DA-NAh, NAl 
 ; CmdBuffer output: TYPE, BAh, BAl, B7, DA_Temp  (B7 -> Bit7 start with Nh)
-; CBUF_START+3 a.k.a. B7, Bit7 to indicate start w/Nh   
+; COUNTL Bit7 to indicate start w/Nh   
 ; Sets FSR0 to address passed in command
 GLOBAL NAtoBA
 NAtoBA:

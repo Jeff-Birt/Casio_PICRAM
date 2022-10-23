@@ -23,10 +23,13 @@ EXTRN PRAM_BL, PRAM_BH, DEVTYPE				; From Main.s
 ;-------------------------------------------------------------------------------   
 ; Reserve RAM for Command Buffer use
 ; CBUF_START->CBUF_START+4=Command, CBUF_START+5->CBUF_START+11=32 Rx nibbles
-; CMODE: Bit0=Last CMD for us
-PSECT   CmdBuf,global,class=BANK0,size=0x1E, noexec,delta=1,space=1
+; CMODE: Bit0=1 Last CMD for us 
+;        Bit1=0 Raw mode, =1 ASCII mode
+;	 Bit2=0 Normal mode, =1 RMW mode
+;	 Bit3=0 RMW Read phase, =1 RMW write phase
+PSECT   CmdBuf,global,class=BANK0,size=0x20, noexec,delta=1,space=1
 GLOBAL  TEMP,COUNTL,COUNTH,CMODE,CBUF_START,CBUF_END,CBUF_FSRxH,CBUF_FSRxL;
-GLOBAL  RXBUF_FSRxH, RXBUF_FSRxL, DEVICE
+GLOBAL  RXBUF_FSRxH, RXBUF_FSRxL, DEVICE,TEMP3,TEMP4
 
     CBUF_START: DS  0x05	; Start address of Command Buffer
     CBUF_END:	DS  0x00	; End address of Command Buffer
@@ -36,11 +39,13 @@ GLOBAL  RXBUF_FSRxH, RXBUF_FSRxL, DEVICE
     COUNTH:	DS  0x01	; HB for 16bit counting
     NIBADD:	DS  0x01	; N2,N1 for up/download, 16byte chunks N0==0
     DEVICE:	DS  0x01	; Current RAM device being accessed
-    DEVMSK:	DS  0x01	; WOrkign register for DEV mask shift/match
-    CMODE:	DS  0x01	; Function State flags
+    DEVMSK:	DS  0x01	; Working register for DEV mask shift/match
+    CMODE:	DS  0x01	; Various mode flags
     TEMP:	DS  0x01	; Function temp variable
     TEMP1:	DS  0x01	; Function temp variable
     TEMP2:	DS  0x01	; Function temp variable
+    TEMP3:	DS  0x01	; Function temp variable
+    TEMP4:	DS  0x01	; Function temp variable
     
     CBUF_FSRxH	EQU 0x20		; high byte of indirect pointer to CBUF
     CBUF_FSRxL	EQU (CBUF_START - 0x20) ; low byte of indirect pointer to CBUF
@@ -77,9 +82,12 @@ ENDM
 ; mn=53, 0110 0010, #DEV=3, DEV0=CRAM, DEV1=PRAM, DEV2=PRAM
 HeaderText:
     RETLW   0x10		    ; Length of string
-IRPC    char, PICRAM 0.5 22***	    ; Macro that adds a RETLW for each character
+; IRPC    char, PICRAM 0.5 22***	    ; Macro that adds a RETLW for each character
+;     RETLW   'char'		    ;
+    IRPC    char, PICRAM 0.5 22**   ; Macro that adds a RETLW for each character
     RETLW   'char'		    ;
-ENDM				    ;
+    RETLW   0x0A		    ; EOL character
+ENDM				    
     
 ;</editor-fold> ----------------------------------------------------------------
  
@@ -97,7 +105,7 @@ InitCBUF:
     CLRF    TEMP		    ; (1) clear spot used for DA
     CLRF    COUNTL		    ; (1) clear spot used for DA
     CLRF    COUNTH		    ; (1) 
-    CLRF    CMODE		    ; (1) clear spot used for DA  
+    CLRF    CMODE		    ; (1) clear all mode settings 
 RETURN				    ; (2) [7]
     
 ;</editor-fold> ----------------------------------------------------------------  
@@ -161,6 +169,7 @@ handleCmd:
     XORWF   COUNTL,W		    ; (1) if result in W, != 0 COUNT !=5
     BTFSS   STATUS,2		    ; (1-2) 
     GOTO    WaitForCE1_2	    ; (2) If not 5 nibbles not complete CMD
+				    ; *** need to handle Ping0 and Ping1 here
     
     CALL    NAtoBA		    ; (28) Sets FSR0 to CMD address
     CALL    Port_C_Write	    ; (#) Set write mode if needed, PortC to $FF
@@ -286,7 +295,8 @@ waitFP5:
 ; Uses FSR1 to save Command to CMDBUF, caller sets FSR1 before calling
 ; Nibble RX order PB-100: CMD=Command Type, AD=Addr. In Device, DA=Device Addr., 
 ; CMDBUF -> CMD,NA (Nibble address packed into bytes in HB LB order)
-; We count number of nibbles recvied. N<5 means a mode change w/o new address
+; # Nibbles Rxd:   1 = Mode change -> Data=0 Normal/Reset mode, Data=1 RMW mode
+;		 2-4 = Overwrites previous nibbles from L->R 
 ; COUNTL: counts #nibbles read, bit 7 indicates odd/even nibble & flush needed
 GLOBAL RxCmd_Slave
   
@@ -705,7 +715,19 @@ RETURN
 GLOBAL DownloadHandler
     
 DownloadHandler:
+    BANKSEL CMODE		    ; Mode passed in W
+    MOVWF   TEMP		    ; Save W while dumping header
+    BTFSS   TEMP,1		    ; CMODE,1=0 RAW mode no header
+    GOTO    dLMode		    ; CMODE,1=1 ASCII dump header
+    
+    ;CLRF    CMODE		    ; *** need to clearonly bit 1
+    BCF	    CMODE,1		    ;
     CALL    DumpHeader		    ; (#) Start file with header
+dLMode:   
+    BANKSEL CMODE		    ; 
+    ;MOVF    TEMP,W		    ; 
+    ;MOVWF   CMODE		    ;
+    IORWF   CMODE		    ; OR in Dump mode setting passed in
     
     BANKSEL DEVTYPE		    ; (2) 
     SWAPF   DEVTYPE,W		    ; (1) Grab Device type config byte
@@ -749,7 +771,7 @@ dLoopTest:
     RRF	    DEVMSK		    ; (1) So we can test device type 
     GOTO    dLoop1		    ; (2) on next loop. Keep going.
     
-dDone:   
+dDone:
     
 RETURN
 ;</editor-fold> ----------------------------------------------------------------   
@@ -757,7 +779,7 @@ RETURN
     
 ;<editor-fold defaultstate="collapsed" desc="UploadHandler">--------------------
 ; Upload from UART to Casio RAM (CRAM) / PIC RAM (PRAM)
-; Uses COUNTL, COUNTH, NIBADD, TEMP1
+; Uses COUNTL, COUNTH, NIBADD, TEMP1, TEMP2, CMODE
 GLOBAL UploadHandler
     
 UploadHandler:
@@ -769,10 +791,13 @@ uCheckHeader:
     ; "PICRAM 1.0 mn***" 
     ; HB = 0b0010, 0=DEV is CRAM, 1=DEV is PRAM
     ; LB = 2 = two devices presnet
+    BANKSEL CMODE		    ; (2) 
+    BCF	    CMODE,1		    ; (1) Turn on RAW Rx mode
     CALL    RxBuffer		    ; (#) This line will Rx the header
 
     ; Device type in header must match device type in DEVTYPE
     ; if not exit, if so keep going using DEVTPYE processed as above.
+    ; *** Type of RAM DEV not important, only same # of DEVs
     BANKSEL RXBUF_START		    ; (1) DEVTYPE in two ASCII numbers
     SWAPF   RXBUF_START+11	    ; (1) Swap nibbles, 0x32->0x23
     MOVLW   0xF0		    ; (1) mask off low nibble 0x20
@@ -812,6 +837,8 @@ uLoop1:
     MOVWF   TEMP1		    ; (1) TEMP1 is # loops counter
       
 uLoop2:    
+    BANKSEL CMODE		    ; (2) 
+    BSF	    CMODE,1		    ; (1) Turn on ASCII Rx mode
     CALL    RxBuffer		    ; (#) This line will Rx the header
     ; check for rx error here
     
@@ -844,14 +871,6 @@ uLoopTest:
     BANKSEL TEMP2		    ; (2) Shift Device type mask right
     RRF	    TEMP2		    ; (1) So we can test device type 
     GOTO    uLoop1		    ; (2) on next loop. Keep going.
-;  
-;                    BANKSEL COUNTH
-;    CLRF    COUNTH
-;    MOVLW   0x10
-;    MOVWF   COUNTL
-;    ResetRxBufPtrFSR0		    ; (4) Resets FSR0 to beginning of RXBUF
-;    CALL    TxBuffer
-;    GOTO    UploadHandlerDone
     
 UploadHandlerDone:
     TurnOffLED
@@ -1039,14 +1058,12 @@ dumpReadNibbles:		    ; Set up to read 32 nibbles from the PB-100
     CALL    Port_C_Input	    ; (#) Default to inputs / HiZ
 
 dumpToUART:			    ; Set up # bytes to Tx counter and call Tx 
-    TurnOnLED
     ResetRxBufPtrFSR0		    ; (4) Resets FSR0 to beginning of RXBUF
     BANKSEL COUNTL		    ; (2) Set #Bytes to Tx in COUNTH, COUNTL
     CLRF    COUNTH		    ; (1) High byte
     MOVLW   0x10		    ; (1) Send 16 bytes
     MOVWF   COUNTL		    ; (1) Low byte
     CALL    TxBuffer		    ; (#) Tx 16 bytes, (32 nibbles)
-    TurnOffLED
     BANKSEL TEMP1		    ; (2)
     DECFSZ  TEMP1		    ; (2) If zero we are done
     GOTO    dumpLoop		    ; (2) If not keep looping
@@ -1083,6 +1100,7 @@ dPICLoop:			    ; Set up to read 16 bytes from PRAM
 dPICLoop2:			    ;    
     MOVIW   FSR1++		    ; (1) Grab next byte of PRAM
     MOVWI   FSR0++		    ; (1) move it to the RXBUFFER/TXBUFFER
+    
     BANKSEL COUNTL		    ; (2)
     DECFSZ  COUNTL		    ; (2) 
     GOTO    dPICLoop2		    ; (2) keep going 
@@ -1093,6 +1111,7 @@ dPICToUART:			    ; Set up # bytes to Tx counter and call Tx
     CLRF    COUNTH		    ; (1) High byte
     MOVLW   0x10		    ; (1) Send 16 bytes
     MOVWF   COUNTL		    ; (1) Low byte
+
     CALL    TxBuffer		    ; (#) Tx 16 bytes, uses FSR0
 
     BANKSEL TEMP1		    ; (2)
@@ -1152,6 +1171,7 @@ xferLoop:
     IORWF   TEMP2,W		    ; (1) buffer
     MOVWF   RXBUF_START+12	    ; (1) buffer
     
+    BCF	    CMODE,1
     CALL    TxBuffer		    ; (#) Send buffer out over UART FSR1
 
     

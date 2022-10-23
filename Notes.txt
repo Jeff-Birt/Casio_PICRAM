@@ -1,3 +1,10 @@
+Ideas:
+Be able to configure DEV that PIC emualtes by UART.
+Keep track of memory map
+
+
+
+Misc stuff:
 Can be ~4.25ms between /CE1 leading up to idle
 
 /OP without /CE1 happens before possible idle, data is E. Next /OP with /CE1 data 0
@@ -8,102 +15,51 @@ No /CLK1 transition in >5us, ~40 instuction cycles, means idle?
 There is ~5ms between packets we are in idle state.
 At 19,200 baud a byte takes ~521us. May be able to send 8 bytes in during idle break.
 
+
 Main loop modes:
 	Init, Run, Idle, Power_Off
 
 
-ToDo:
-Need to implement a proper idle state handler.
+UART settings: 19200,8,N,1 0x0A EOL character, Tx - 6ms delay after each 
 	Single key command, i.e. 
-	(S)tatus, (U)pload [to PB-100 via UART], (D)ownload [from PB-100 via UART]
-	(X) Dump DEV0 (PB-100) w/header, (Y) Dump DEV1 (PIC) w/header, (Z)ero all RAM
+	(S)tatus - shows current configuration on PICRAM
+	(U)pload - Upload RAM from PB-100 via UART. Uses ASCII 0x30-0x3F to represent each nibble.  
+	(D)ownload - Download from UART to PB-100 RAM. Uses ASCII 0x30-0x3F to represent each nibble.
+	(R)aw - Raw, binary dump of PB-100 RAM. 
+	(X)
+	(Y)
+	(Z)ero - Zero all RAM, or set to otehr value like 0xA5
 
 
-Need to be able to download from all DEV# on PB-100 as well as PICRAM.
-Need to be able to upload to sll DEV# on PB-100 and PICRAM
-
-How to tell if DEV# is in PB-100 or in PICRAM? 
-A table in EEPROM of DEV#s that PIC emulates? 
-Do we need a way to manually set it? A serial command?
-
-Check for single character serial command during idle periods. 
-Commands that require extensive serial input use a separate input function. This function times out. If TEMP > 0 less than 16 bytes received. 16 - TEMP = num bytes received
-
-After 16 characters then what? After first 16 byte header we need to figure out which Device on the PB-100 or PIC this file is for. 
 
 
-Header format is "PICRAM 1.0 mn***"
+Download file header format is "PICRAM 1.0 mn**EOL"
 Bytes	  Description
 0-5 	  Name
-6	  Space
-7-9	  Version# Major.Minor
-10	  Space
-11-12   mn high/low nibble of device mask/count (ASCII)
-13-15	  Free
+6	  	  Space
+7-9	      Version# Major.Minor
+10	      Space
+11-12     mn high/low nibble of device mask/count (ASCII)
+13-14	  Free
+15        0x0A, EOL character
 
 m = High Nibble = Device type mask 0=CRAM, 1=PRAM
 n =  Low Nibble = #Devices 1-4
-ASCII $30-$3F = cahracters 0123456789:;<=>? = values 0-F
 mn=22, 0010 0010, #DEV=2, DEV0=CRAM, DEV1=PRAM
 mn=53, 0110 0010, #DEV=3, DEV0=CRAM, DEV1=PRAM, DEV2=PRAM
+ASCII $30-$3F = characters 0123456789:;<=>? = values 0-F
+
+In a 'RAW' RAM dump nibble are packed into bytes in LH order so they can be read from left to right as though they were being viewed in nibble address form. So, a dumped byte of '13' should be read as '31'. No EOL marker is used in a 'RAW' dump.
+
+In an 'ASCII" RAM dump 0x30 is OR'd with the nibble value to form an ASCII character starting at 0x30, the character '0'. So, nibbles of value 0-F are ASCII values 0x30-0x3F. This makes encoding and decoding easy but the output looks a bit off as nibble values A-F are puntuation :;<=>? . A EOL marker of 0x0A is used for 'ASCII' dumps.
 
 
-Rest of file is raw binary dump of that device's RAM
-
-PIC_RAM Casio_RAM
-PRAM	CRAM
-
-COUNTL	; Number of nibbles/bytes in command/data
-COUNTH	; HB for 16bit counting
-
-Used by - 
-Casio_Coms: InitCBUF, WaitForCE1, RxCmd_Slave, RxData_Slave, TxData_Slave, RxData_Master, TxCmd_Master, TxData_Master, DownloadHandler, UploadHandler, StatusHandler, XHandler, DumpCRAM, DumpPRAM, Upload_CRAM
-
-Casio_Com_Macros: SetCBufPointer_L, TxBuffer 
-
-UART_Com: RxBuffer 
-
-
-
-NIBADD	; N2,N1 for up/download, 16byte chunks N0==0 
-Used by - 
-Casio_Coms: UploadHandler, ZHandler, Upload_CRAM, TxBuffer, 
-
-
-DEVICE	; Current RAM device being accessed
-
-
-
-CMODE	; Function State flags
-Used by - 
-Casio_Coms: InitCBUF, WaitForCE1, 
-
-UART_Coms: RxBuffer
- 
-
-
-TEMP	; Function temp variable
-Used by -
-Casio_Coms: InitCBUF, RxCmd_Slave, RxData_Slave, TxData_Slave, RxData_Master, TxData_Master, UploadHandler, Upload_PRAM
-
-UART_Coms: RxBuffer
-
-
-
-TEMP1	; Function temp variable
-Used by - 
-Casio_Coms: UploadHandler, XHandler, ZHandler, DumpCRAM, DumpPRAM 
-
-
-TEMP2	; Function temp variable
-Used by -
-Casio_Coms: DumpCRAM
-
-
-
-
-
-
-
-
+Memory Map (in byte addresses) after initilization
+0x0000-0x		Screen Buffer "READY P0" after initialization
+0x0060-0x		Tokenization Buffer
+0x0080-0x0098	Starting at 0x0080 groups of three nibbles that point to next available free address for each program sapce.
+			The extra bytes at the end are unknown at this time.
+0x00E0		Initialized to 0xF5, unknown use
+0x00F0-0x01FF	Initialized to all zeros except 0x00F1 and 0x01FF which are initialized to 0xFF. Unknown use
+0x0730-0x07F0	Initialized to all zeros, guessing it is A-Z variables at 8 bytes each
 
