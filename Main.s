@@ -4,8 +4,6 @@
     
 PROCESSOR 16F18446
     
-LIST
-
 ; We only #include for files which are only macros
 #include <xc.inc>
 #include "ConfigClkPmd.s"
@@ -17,7 +15,21 @@ LIST
 #include "ConfigUART.s"
 #include "Casio_Com_Macros.s"
 #include "Helper_Macros.s"
-  
+ 
+    
+;<editor-fold defaultstate="collapsed" desc="UnitTestInit">---------------------    
+    
+;#define EndableDebug		    ; Set to 1 enable/assemble units tests
+
+#ifdef EndableDebug
+    
+EXTRN NAtoDA_Tests					; Test function
+    
+#endif
+    
+;</editor-fold> ----------------------------------------------------------------     
+    
+    
 ;<editor-fold defaultstate="collapsed" desc="Initialization">-------------------
     
 ;-------------------------------------------------------------------------------
@@ -63,10 +75,9 @@ ST_POff	    equ	0x02		    ; Powering down state
 	    	    
 ;-------------------------------------------------------------------------------   
 ; Reserve RAM for keeping track of program state
-PSECT   State,global,class=BANK0,size=0x02,noexec,delta=1,space=1
+PSECT   State,global,class=BANK0,size=0x01,noexec,delta=1,space=1
 GLOBAL PSTATE, DEVTYPE
     PSTATE:	DS  0x01	    ; Current program state
-    DEVTYPE:	DS  0x01	    ; HB mask of DEV types, LB # of DEVs
  
 ;</editor-fold> ----------------------------------------------------------------  
     
@@ -94,10 +105,6 @@ main:
 
 ;-------------------------------------------------------------------------------
 ; Init PRAM and CBUF, wait for Ping before trying to talk to PB-100
-    BANKSEL DEVTYPE		    ; Set Device type mask and number of devices
-    ;MOVLW   0x22		    ; HB = 0010, 0=DEV is CRAM, 1=DEV is PRAM
-    MOVLW   0x02
-    MOVWF   DEVTYPE		    ; LB = 2 = two devices present
     CALL    InitCBUF		    ; [7] Initialize Command BUffer
     ConfigIOC_R			    ; [14] PortC to general bus monitoring
     CALL    WaitForPing		    ; (##) Wait for 'ping' before bus monitoring

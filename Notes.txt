@@ -2,6 +2,13 @@ Ideas:
 Be able to configure DEV that PIC emualtes by UART.
 Keep track of memory map
 
+How to speed up 'handleCmd'
+1) Time 'CALL    RxCmd_Slave': 8.5us (68 counts) from /CE raising to RxCmd_Slave done.
+half of this time is spent waiting for /CE to raise.
+Period of RxCmd_Slave - starting: 8.5us
+Period of RxCmd_Slave - move check for CE" 5.5us
+
+2) Can we put off 'CALL    Port_C_Write	    ; (11) {1.375us}' ?
 
 
 Misc stuff:

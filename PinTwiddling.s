@@ -134,6 +134,8 @@ Port_C_Write:
     MOVWF   PRTC		; (2) update Port C backing store
     BANKSEL PORTC		; (2) (000E)
     MOVWF   PORTC		; (1) Init Port C outputs
+    MOVLW   0xF0		; (1) Pins 0-3 as outputs
+    MOVWF   TRISC
 RETURN				; (2) [11]
 ;</editor-fold> ---------------------------------------------------------------- 
     

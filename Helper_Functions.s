@@ -4,10 +4,25 @@ PROCESSOR 16F18446
 #include <xc.inc>
 #include "Helper_Macros.s"
 
+    
 ;-------------------------------------------------------------------------------
 ; Definitions declared other files
-EXTRN CBUF_START, CBUF_END, COUNTL			    ; From Casio_Coms.s
-EXTRN PRAM_BH, PRAM_BL, PRAM_EH, PRAM_EL		    ; From Main.s
+EXTRN CBUF_START, CBUF_END, CBUF_RAW,COUNTL,TblDevToMask,CMODE; From Casio_Coms.s
+EXTRN PRAM_BH, PRAM_BL, PRAM_EH, PRAM_EL,DEVTYPE	    ; From Main.s
+    
+    
+;<editor-fold defaultstate="collapsed" desc="UnitTestInit">---------------------    
+ 
+#define EndableDebug
+    
+#ifdef EndableDebug
+    
+;EXTRN NAtoDA_Tests					; Test function
+    
+#endif
+    
+;</editor-fold> ----------------------------------------------------------------
+    
     
 ;<editor-fold defaultstate="collapsed" desc="Delay">-----------------------  
 ; Delay - delay in increments of 25us 
@@ -91,29 +106,33 @@ waitBtn2:
 ;<editor-fold defaultstate="collapsed" desc="NAtoBA">---------------------------
 ; NAtoBA - Convert nibble address to byte address
 ; CmdBuffer  input: TYPE, DA-NAh, NAl 
-; CmdBuffer output: TYPE, BAh, BAl, B7, DA_Temp  (B7 -> Bit7 start with Nh)
-; COUNTL Bit7 to indicate start w/Nh   
+; CmdBuffer output: TYPE, BAh, BAl
+; CMODE Bit7 to indicate start w/Nh   
 ; Sets FSR0 to address passed in command
 GLOBAL NAtoBA
 NAtoBA:
-    BANKSEL CBUF_START		    ; (2) 
-    ;CLRF    CBUF_START+3	    ; (1) Clear B7 ahead of time
-    CLRF    COUNTL
-    MOVLW   0xF0		    ; (1) mask to keep only DA
-    ANDWF   CBUF_START+1,W	    ; (1) save DA to W
-    MOVWF   CBUF_START+4	    ; (1) Save DA to temp location
+    BANKSEL CBUF_START		    ; (2) Everything in same bank!
+    MOVF    CBUF_RAW,W		    ; (1) Transfer CMD Type to W
+    MOVWF   CBUF_START		    ; (1) Transfer CMD Type to CBUF
+    
+    MOVF    CBUF_RAW+3,W	    ; (1) Grab high nibble of Address in Device
+    MOVWF   CBUF_START+1	    ; (1) Move to CBUF
+    
+    SWAPF   CBUF_RAW+2,W	    ; (1) Grab middle nibble of Address in Device
+    MOVWF   CBUF_START+2	    ; (1) Swap to high nibble, save in CBUF
+    
+    MOVF    CBUF_RAW+1,W	    ; (1) Grab low nibble of Address in Device
+    IORWF   CBUF_START+2	    ; (1) [10] Or in middle nibble
     
     ; NA to DA section
-    MOVLW   0x0F		    ; (1) mask to keep high nibble of NA
-    ANDWF   CBUF_START+1	    ; (1) mask off DA (Device Address)
+    BCF	    CMODE,7		    ; (1) CMODE,7= starting nibble for R/W
     BCF	    STATUS, 0		    ; (1) clear carry bit
     RRF	    CBUF_START+1	    ; (1) MSN of NA (Nibble Address) divide by 2
     RRF	    CBUF_START+2	    ; (1) Low nibs of NA divide by 2, carry in
     BTFSC   STATUS,0		    ; (2) Skip ahead if Carry not set
-    ;BSF	    CBUF_START+3,7	    ; (1) Set Bit 7 of B7 to indicate start w/Nh
-    BSF	    COUNTL,7
-    MOVF    CBUF_START+4,W	    ; (1) get DA saved earlier
-    IORWF   CBUF_START+1	    ; (1) Put DA back where it was
+    BSF	    CMODE,7		    ; (1) CMODE,7=1 start with high nibble
+    SWAPF   CBUF_RAW+4,W	    ; (1) Grab DEV nibble from raw data
+    IORWF   CBUF_START+1	    ; (1) [9] OR DEV # to first byte of 
     
     ; Offset into FSRO section
     BCF	    STATUS,0		    ; (1) Clear carry flag
@@ -125,44 +144,9 @@ NAtoBA:
     ADDLW   PRAM_BH		    ; (1) index into PRAM HB
     MOVWF   FSR0H		    ; (1) move to File Select Register 1 High
     
-    RETURN			    ; (2) [26] ~3.4us
+    RETURN			    ; (9)+[10]+{9]=28 ~3.5us
 ;</editor-fold> ----------------------------------------------------------------   
-    
-    
-;<editor-fold defaultstate="collapsed" desc="NA to DA tests">-------------------    
-;    ; CmdBuffer  input: TYPE, DA-NAh, NAl 
-;    ; CmdBuffer output: TYPE, BAh, BAl, B7, DA  (B7 -> Bit7 start with Nh)
-;    ; Input: 04, 02, 3D -- Output: 04, 01, 1E, 80, 00
-;    ; Input: 04, 12, 3C -- Output: 04, 01, 1E, 00, 01
-;    MOVLW   0x04		    ; Write command
-;    MOVWF   CBUF_START		    ;
-;    MOVLW   0x12		    ; DA-Nh
-;    MOVWF   CBUF_START+1	    ;
-;    MOVLW   0x3C		    ; Nm-Nl
-;    MOVWF   CBUF_START+2	    ;    
-;    CALL    NAtoBA
-;    CALL    Index2PRAM
-;    
-;    MOVF    FSR0H,W		    ; Tack on PRAM address to CMD buffer
-;    MOVWF   CBUF_START+5	    ; for testing
-;    MOVF    FSR0L,W		    ;
-;    MOVWF   CBUF_START+6	    ;
-;    
-;    ; Tx what is in buffer pointed to by FSR1
-;    BANKSEL TEMP		    ; (2)
-;    MOVLW   0x07		    ; (1) 7 bytes
-;    MOVWF   TEMP		    ; (1) write W to Buffer Count
-;    
-;    MOVLW   CBUF_FSRxH		    ; (1) high byte start of CBUF
-;    MOVWF   FSR1H		    ; (1) move to File Select Register 1 High
-;    MOVLW   CBUF_FSRxL	    	    ; (1) CBUF start low byte (# bytes to rx)
-;    MOVWF   FSR1L		    ; (1) move to File Select Register 1 Low    
-;    
-;    CALL    TxCmdBuf
-;
-;    GOTO    block
-;</editor-fold> ----------------------------------------------------------------  
-           
+      
 
 ;<editor-fold defaultstate="collapsed" desc="Index2PRAM">-----------------------
 ; Index2PRAM - Set index into PRAM based on address sent in last command
@@ -182,26 +166,84 @@ Index2PRAM:
     
     RETURN			    ; (2) [10] ~2.5us
 ;</editor-fold> ---------------------------------------------------------------- 
+      
+ 
+ ;<editor-fold defaultstate="collapsed" desc="UnitTests">-----------------------  
+ 
+
+#ifdef EndableDebug
     
+;<editor-fold defaultstate="collapsed" desc="NA to DA tests">-------------------    
+; CBUF_RAW: TYPE, nl nm nh DEV
+; CBUF_START: TYPE, BAh, BAl
+; Input: 00, 00, 09, 00, 00 -- Output: 00, 01, 20, 00
+; Input: 04, 08, 06, 04, 01 -- Output: 04, 12, 34, 00
+; Input: 04, 0D, 03, 02, 00 -- Output: 04, 01, 1E, 80 (COUNTL)
+; Input: 04, 0C, 03, 02, 01 -- Output: 04, 11, 1E, 00 (COUNTL)
+GLOBAL NAtoDA_Tests
+
+NAtoDA_Tests:
+    BANKSEL CBUF_START		    ; (2) Everything in same bank!
+    MOVLW   0x04
+    MOVWF   CBUF_RAW
+    MOVLW   0x0D
+    MOVWF   CBUF_RAW+1
+    MOVLW   0x03
+    MOVWF   CBUF_RAW+2
+    MOVLW   0x02
+    MOVWF   CBUF_RAW+3
+    MOVLW   0x00
+    MOVWF   CBUF_RAW+4
+    CALL    NAtoBA
+    MOVF    COUNTL,W
+    CALL    TblDevToMask_Tests
     
-;<editor-fold defaultstate="collapsed" desc="Test">---------------------------
-;    ; CmdBuffer  input: TYPE, DA-NAh, NAl 
-;    ; CmdBuffer output: TYPE, BAh, BAl, B7, DA  (B7 -> Bit7 start with Nh)
-;    ; Input: 04, 02, 3D -- Output: 04, 01, 1E, 80, 00
-;    ; Input: 04, 12, 3C -- Output: 04, 01, 1E, 00, 01
-;    MOVLW   0x04		    ; Write command
-;    MOVWF   CBUF_START		    ;
-;    MOVLW   0x12		    ; DA-Nh
-;    MOVWF   CBUF_START+1	    ;
-;    MOVLW   0x3C		    ; Nm-Nl
-;    MOVWF   CBUF_START+2	    ;    
-;    CALL    NAtoBA
-;    CALL    Index2PRAM
-;    
-;    MOVF    FSR0H,W		    ; Tack on PRAM address to CMD buffer
-;    MOVWF   CBUF_START+5	    ; for testing
-;    MOVF    FSR0L,W		    ;
-;    MOVWF   CBUF_START+6	    ;
-;</editor-fold> --------------------------------------------------------------
+    BANKSEL CBUF_START		    ; (2) Everything in same bank!
+    MOVLW   0x04
+    MOVWF   CBUF_RAW
+    MOVLW   0x0C
+    MOVWF   CBUF_RAW+1
+    MOVLW   0x03
+    MOVWF   CBUF_RAW+2
+    MOVLW   0x02
+    MOVWF   CBUF_RAW+3
+    MOVLW   0x01
+    MOVWF   CBUF_RAW+4
+    CALL    NAtoBA
+    MOVF    COUNTL,W
+    MOVF    COUNTL,W
+    CALL    TblDevToMask_Tests
+    
+    RETURN
+
+;</editor-fold> ----------------------------------------------------------------  
+ 
+;<editor-fold defaultstate="collapsed" desc="TblDevToMask tests">---------------      
+GLOBAL TblDevToMask_Tests
+
+TblDevToMask_Tests:
+    BANKSEL CBUF_START		    ; (2) 
+    BCF	    CMODE,0		    ; (1) clear DEV1 CMD flag
+    
+    MOVLW   HIGH TblDevToMask	    ; (1) Must set PLATH to high byte of table
+    MOVWF   PCLATH		    ; (1) as assembler can put it anywhere
+    SWAPF   CBUF_START+1,W	    ; (1) Get DEV address in low nibble of W
+    ANDLW   0x0F		    ; (1) Mask off the high nibble
+    CALL    TblDevToMask	    ; (#) DEV # to mask in W high nibble
+    
+    BANKSEL DEVTYPE		    ; (2) Device type cfg byte, DEV in high nib
+    ANDWF   DEVTYPE,W		    ; (1) AND mask from DEV w/DEVTYPE mask
+    ANDLW   0xF0		    ; (1) Mask off low nibble
+    BTFSC   STATUS,2		    ; (2) If W=0, this DEV is CRAM
+    RETURN
+    BANKSEL CBUF_START
+    BSF	    CMODE,0		    ; (1) Set DEV1 Bit0 flag, indicate PRAM
+    
+    RETURN
+;</editor-fold> ----------------------------------------------------------------
+    
+#endif
+    
+;</editor-fold> ---------------------------------------------------------------- 
     
   
